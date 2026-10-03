@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma migrations (opcional, se regeneran)
+# packages/backend/prisma/migrations/
+
+# Vite
+packages/frontend/dist/
+packages/frontend/.vite/
+
+# Archivos JSON de pruebas (no son código fuente)
+packages/backend/login.json
+packages/backend/login_sr.json
+packages/backend/login_padre.json
+packages/backend/login_docente.json
+packages/backend/login_nuevo.json
+packages/backend/login_prueba.json
+packages/backend/admin_login.json
+packages/backend/student.json
+packages/backend/teacher.json
+packages/backend/parent.json
+packages/backend/subject.json
+packages/backend/course.json
+packages/backend/section.json
+packages/backend/enrollment.json
+packages/backend/create_org.json
+packages/backend/resp_*.json
+packages/backend/admin_resp.json
+packages/backend/admin_stats.json
+packages/backend/admin_orgs.json
+packages/backend/org_detail.json
+packages/backend/suspend_resp.json
+packages/backend/reactivate_resp.json
+packages/backend/login_check.json
+packages/backend/grade1.json
+packages/backend/grade1b.json
+packages/backend/grade_invalid.json
+packages/backend/bulk.json
+packages/backend/att.json
+packages/backend/att_ceo.json
+packages/backend/bulk_att.json
+packages/backend/session.json
+packages/backend/session2.json
+packages/backend/cat1.json
+packages/backend/cat2.json
+packages/backend/cat3.json
+packages/backend/eval*.json
+packages/backend/facturas.csv
+packages/backend/*.csv

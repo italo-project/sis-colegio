@@ -1,0 +1,64 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public"]
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  isActive     Boolean  @default(true) @map("is_active")
+  isSuperAdmin Boolean  @default(false) @map("is_super_admin")   // ← debe estar
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organizationUsers OrganizationUser[]
+
+  @@map("users")
+  @@schema("public")
+}
+
+model Organization {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  subdomain  String   @unique
+  schemaName String   @unique @map("schema_name")
+  plan       String   @default("basic")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  
+    // Mercado Pago
+  mpUserId       String?   @map("mp_user_id") @db.VarChar(50)
+  mpAccessToken  String?   @map("mp_access_token")
+  mpRefreshToken String?   @map("mp_refresh_token")
+  mpPublicKey    String?   @map("mp_public_key") @db.VarChar(100)
+  mpConnectedAt  DateTime? @map("mp_connected_at") @db.Timestamptz
+  mpExpiresAt    DateTime? @map("mp_expires_at") @db.Timestamptz
+
+  members OrganizationUser[]
+
+  @@map("organizations")
+  @@schema("public")
+}
+
+model OrganizationUser {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId, role])
+  @@map("organization_users")
+  @@schema("public")
+}

@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/grades/courses/dc263d08-41c0-4908-b4af-a0942841d169/students</pre>
+</body>
+</html>
