@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle, Users } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { coursesApi } from '@/api/courses.api';
 import { Button } from '@/components/ui/Button';
 import { CourseFormModal } from './CourseFormModal';

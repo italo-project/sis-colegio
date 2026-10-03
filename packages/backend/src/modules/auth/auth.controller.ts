@@ -120,10 +120,11 @@ export const login = async (req: Request, res: Response) => {
 
   const accessToken = signAccessToken({
     userId: user.id,
-    organizationId: req.tenant.id,
-    role: membership.role,
-    schemaName: req.tenant.schemaName,
-    isSuperAdmin: user.isSuperAdmin,
+  organizationId: req.tenant.id,
+  role: membership.role,
+  schemaName: req.tenant.schemaName,
+  isSuperAdmin: user.isSuperAdmin,
+  email: user.email,
   });
   const refreshToken = await createRefreshToken(user.id, req.tenant.id);
 
@@ -189,10 +190,11 @@ export const superAdminLogin = async (req: Request, res: Response) => {
 
   const accessToken = signAccessToken({
     userId: user.id,
-    organizationId: '00000000-0000-0000-0000-000000000000',
-    role: 'admin',
-    schemaName: 'public',
-    isSuperAdmin: true,
+  organizationId: '00000000-0000-0000-0000-000000000000',
+  role: 'admin',
+  schemaName: 'public',
+  isSuperAdmin: true,
+  email: user.email,
   });
   const refreshToken = await createRefreshToken(user.id, '00000000-0000-0000-0000-000000000000');
 

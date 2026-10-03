@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { enrollmentsApi } from '@/api/enrollments.api';
@@ -49,15 +49,6 @@ export const BulkEnrollModal = ({ open, onClose, onSuccess }: Props) => {
     setResult(null);
 
     try {
-      // 1. Obtener estudiantes de la sección
-      const { data: sectionStudents } = await apiClient.get<{
-        items: Array<{ student: { id: string; firstName: string; lastName: string } }>;
-      }>('/courses', {
-        // Este endpoint no sirve aquí: usamos mejor students por sección
-      }).catch(() => ({ data: { items: [] } }));
-
-      // Mejor: cargar estudiantes de la sección vía endpoint específico
-      // Como no hay endpoint directo, usamos los estudiantes de los cursos de esa sección
       const { data: coursesOfSection } = await apiClient.get<{ items: any[] }>('/courses', {
         params: { sectionId: selectedSectionId, active: 'true' },
       });

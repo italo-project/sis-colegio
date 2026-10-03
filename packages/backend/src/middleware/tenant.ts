@@ -16,7 +16,8 @@ declare global {
         userId: string;
         organizationId: string;
         role: string;
-        isSuperAdmin?: boolean;  // ← NUEVO
+        isSuperAdmin?: boolean;
+        email?: string; 
       };
     }
   }

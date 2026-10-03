@@ -32,14 +32,19 @@ model Organization {
   plan       String   @default("basic")
   isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
-  
-    // Mercado Pago
+
+  // Mercado Pago
   mpUserId       String?   @map("mp_user_id") @db.VarChar(50)
   mpAccessToken  String?   @map("mp_access_token")
   mpRefreshToken String?   @map("mp_refresh_token")
   mpPublicKey    String?   @map("mp_public_key") @db.VarChar(100)
   mpConnectedAt  DateTime? @map("mp_connected_at") @db.Timestamptz
   mpExpiresAt    DateTime? @map("mp_expires_at") @db.Timestamptz
+
+  // Auditoría / Soft delete
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  deletedBy      String?   @map("deleted_by") @db.Uuid
+  deletionReason String?   @map("deletion_reason")
 
   members OrganizationUser[]
 

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { BookOpen, Users, Award, CalendarCheck } from 'lucide-react';
+import { Users, Award, CalendarCheck } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/api/client';
 import type { Course } from '@/types/course';

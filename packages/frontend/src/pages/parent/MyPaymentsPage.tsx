@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, CheckCircle, Clock, XCircle, Receipt } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Receipt } from 'lucide-react';
 import { meApi } from '@/api/me.api';
 import { StatCard } from '@/components/ui/Card';
 import { formatDateEs } from '@/lib/dates';

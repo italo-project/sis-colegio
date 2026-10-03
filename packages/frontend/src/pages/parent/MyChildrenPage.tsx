@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Users, Award, CalendarCheck, DollarSign } from 'lucide-react';
+import { Users, Award, CalendarCheck } from 'lucide-react';
 import { meApi } from '@/api/me.api';
 
 export const MyChildrenPage = () => {

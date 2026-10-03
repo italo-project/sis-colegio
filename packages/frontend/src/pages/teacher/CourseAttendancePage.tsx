@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Calendar, Plus, Eye, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, Plus, Eye, Trash2} from 'lucide-react';
 import { attendanceApi } from '@/api/attendance.api';
 import { getErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/Button';
@@ -30,11 +30,6 @@ const statusLabels: Record<AttendanceStatus, string> = {
   absent: 'Faltó',
 };
 
-const statusColors: Record<AttendanceStatus, string> = {
-  present: 'bg-green-100 text-green-700',
-  late: 'bg-yellow-100 text-yellow-700',
-  absent: 'bg-red-100 text-red-700',
-};
 
 export const CourseAttendancePage = () => {
   const { courseId } = useParams<{ courseId: string }>();

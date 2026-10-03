@@ -1,7 +1,5 @@
 import { apiClient } from './client';
 import type {
-  CourseAverage,
-  CourseGradeEntry,
   CreateEvaluationPayload,
   CreateGradeCategoryPayload,
   Evaluation,

@@ -17,9 +17,10 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
 
     req.user = {
       userId: payload.userId,
-      organizationId: payload.organizationId,
-      role: payload.role,
-      isSuperAdmin: payload.isSuperAdmin,
+  organizationId: payload.organizationId,
+  role: payload.role,
+  isSuperAdmin: payload.isSuperAdmin,
+  email: payload.email, 
     };
     next();
   } catch {

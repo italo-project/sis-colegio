@@ -7,7 +7,6 @@ import {
   Trash2,
   Edit,
   FolderOpen,
-  FileText,
   Users,
   Save,
 } from 'lucide-react';

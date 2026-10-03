@@ -21,15 +21,37 @@ import { MyChildrenPage } from '@/pages/parent/MyChildrenPage';
 import { ChildGradesPage } from '@/pages/parent/ChildGradesPage';
 import { ChildAttendancePage } from '@/pages/parent/ChildAttendancePage';
 import { MyPaymentsPage } from '@/pages/parent/MyPaymentsPage';
+import { AdminLoginPage } from '@/pages/admin/AdminLoginPage';
+import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage';
+import { OrganizationsListPage } from '@/pages/admin/OrganizationsListPage';
+import { OrganizationDetailPage } from '@/pages/admin/OrganizationDetailPage';
+import { AdminLayout } from '@/layouts/AdminLayout';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
+import { UsersListPage } from '@/pages/admin/UsersListPage';
+import { AuditLogsPage } from '@/pages/admin/AuditLogsPage';
 
 export const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Login normal de colegios */}
         <Route path="/login" element={<LoginPage />} />
 
+        {/* Login de super-admin */}
+        <Route path="/admin/login" element={<AdminLoginPage />} />
+
+        {/* Rutas del panel super-admin */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="organizations" element={<OrganizationsListPage />} />
+          <Route path="organizations/:id" element={<OrganizationDetailPage />} />
+          <Route path="users" element={<UsersListPage />} />
+          <Route path="audit-logs" element={<AuditLogsPage />} />
+        </Route>
+
+        {/* Rutas de colegios (CEO, docente, estudiante, padre) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -206,6 +228,7 @@ export const AppRoutes = () => {
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        
       </Routes>
     </BrowserRouter>
   );

@@ -6,7 +6,7 @@ import { studentsApi } from '@/api/students.api';
 import { apiClient } from '@/api/client';
 
 export const CeoDashboardPage = () => {
-  const { user, role } = useAuthStore();
+  const { user } = useAuthStore();
 
   const { data: students } = useQuery({
     queryKey: ['students', 'count'],

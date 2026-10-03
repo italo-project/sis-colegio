@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { BookOpen, Award } from 'lucide-react';
 import { meApi } from '@/api/me.api';
-import { Card } from '@/components/ui/Card';
 
 export const StudentMyCoursesPage = () => {
   const { data, isLoading } = useQuery({
