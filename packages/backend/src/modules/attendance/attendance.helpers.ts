@@ -1,7 +1,13 @@
-﻿import { Request } from "express";
-import { prisma } from "../../config/prisma";
-import { teachersRepository } from "../teachers/teachers.repository";
+import { Request } from 'express';
+import { prisma } from '../../config/prisma';
+import { teachersRepository } from '../teachers/teachers.repository';
 
+/**
+ * Verifica si el usuario puede tomar/editar la asistencia de una sección.
+ * - CEO: siempre puede
+ * - Docente: solo si es el tutor asignado a esa sección
+ * - Otros: nunca
+ */
 export const canManageSection = async (
   req: Request,
   sectionId: string,
@@ -9,14 +15,14 @@ export const canManageSection = async (
   const user = req.user!;
   const schema = req.tenant!.schemaName;
 
-  if (user.role === "ceo") {
+  if (user.role === 'ceo') {
     return { allowed: true };
   }
 
-  if (user.role === "docente") {
+  if (user.role === 'docente') {
     const teacher = await teachersRepository.findByUserId(schema, user.userId);
     if (!teacher) {
-      return { allowed: false, reason: "No estas registrado como docente" };
+      return { allowed: false, reason: 'No estás registrado como docente' };
     }
 
     const rows = await prisma.$queryRawUnsafe<Array<{ tutor_user_id: string | null }>>(
@@ -25,18 +31,18 @@ export const canManageSection = async (
     );
 
     if (!rows[0]) {
-      return { allowed: false, reason: "Seccion no encontrada" };
+      return { allowed: false, reason: 'Sección no encontrada' };
     }
 
     if (rows[0].tutor_user_id !== user.userId) {
       return {
         allowed: false,
-        reason: "Solo el tutor de la seccion o el CEO pueden gestionar la asistencia",
+        reason: 'Solo el tutor de la sección o el CEO pueden gestionar la asistencia',
       };
     }
 
     return { allowed: true };
   }
 
-  return { allowed: false, reason: "Rol no autorizado para gestionar asistencia" };
+  return { allowed: false, reason: 'Rol no autorizado para gestionar asistencia' };
 };

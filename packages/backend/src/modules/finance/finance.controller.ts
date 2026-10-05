@@ -122,13 +122,13 @@ export const financeController = {
     );
     if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
 
-    const concept = await feeConceptsRepository.findById(
-      req.tenant!.schemaName,
-      parsed.data.feeConceptId,
-    );
-    if (!concept || !concept.isActive) {
-      return res.status(404).json({ error: 'Concepto no encontrado o inactivo' });
-    }
+   const concept = await feeConceptsRepository.findById(
+  req.tenant!.schemaName,
+  parsed.data.feeConceptId,
+);
+if (!concept || !concept.isActive) {
+  return res.status(404).json({ error: 'Concepto no encontrado o inactivo' });
+}
 
     const existing = await invoicesRepository.findByUniqueKey(
       req.tenant!.schemaName,
