@@ -194,4 +194,43 @@ export const academicController = {
     );
     res.json(updated);
   },
+    /**
+   * GET /api/academic/sections/:id/detail
+   */
+  async getSectionDetail(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    const detail = await sectionsRepository.getDetail(req.tenant!.schemaName, id);
+    if (!detail) return res.status(404).json({ error: 'Sección no encontrada' });
+    res.json(detail);
+  },
+
+  /**
+   * GET /api/academic/sections/:id/students
+   */
+  async listSectionStudents(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    const section = await sectionsRepository.findById(req.tenant!.schemaName, id);
+    if (!section) return res.status(404).json({ error: 'Sección no encontrada' });
+
+    const students = await sectionsRepository.listStudents(req.tenant!.schemaName, id);
+    res.json({ items: students, total: students.length });
+  },
+
+  /**
+   * GET /api/academic/sections/:id/courses
+   */
+  async listSectionCourses(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    const section = await sectionsRepository.findById(req.tenant!.schemaName, id);
+    if (!section) return res.status(404).json({ error: 'Sección no encontrada' });
+
+    const courses = await sectionsRepository.listCourses(req.tenant!.schemaName, id);
+    res.json({ items: courses, total: courses.length });
+  },
 };

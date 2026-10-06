@@ -61,3 +61,47 @@ export type UpdateSectionPayload = {
 export type AssignTutorPayload = {
   tutorUserId: string | null;
 };
+
+export type SectionDetail = {
+  id: string;
+  name: string;
+  capacity: number | null;
+  isActive: boolean;
+  tutorUserId: string | null;
+  tutor: { fullName: string | null; email: string | null } | null;
+  gradeLevel: {
+    id: string;
+    name: string;
+    code: string;
+    level: string;
+  };
+  academicYear: {
+    id: string;
+    year: number;
+  };
+  studentsCount: number;
+  coursesCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SectionStudent = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dni: string;
+  email: string | null;
+  phone: string | null;
+  hasAccount: boolean;
+  isActive: boolean;
+};
+
+export type SectionCourse = {
+  id: string;
+  subjectId: string;
+  subject: { code: string; name: string; area: string | null };
+  teacher: { id: string; firstName: string; lastName: string };
+  weeklyHours: number | null;
+  isActive: boolean;
+  studentsCount: number;
+};

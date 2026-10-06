@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle, UserCog } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle, UserCog, Eye } from 'lucide-react';
 import { sectionsApi } from '@/api/sections.api';
 import { Button } from '@/components/ui/Button';
 import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
@@ -219,6 +219,13 @@ export const SectionsListPage = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+  <Link
+  to={`/sections/${section.id}`}
+  className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+  title="Ver detalle"
+>
+  <Eye className="w-4 h-4" />
+</Link>
   <Link
     to={`/my-sections/${section.id}/attendance`}
     className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"

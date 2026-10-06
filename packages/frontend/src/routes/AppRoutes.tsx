@@ -35,18 +35,19 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { MyProfilePage } from '@/pages/MyProfilePage';
 import { MySectionsPage } from '@/pages/teacher/MySectionsPage';
 import { SectionAttendancePage } from '@/pages/teacher/SectionAttendancePage';
+import { SectionDetailPage } from '@/pages/sections/SectionDetailPage';
 
 export const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Login normal de colegios */}
+        {/* ─── Rutas PÚBLICAS (sin auth) ─────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
-
-        {/* Login de super-admin */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
 
-        {/* Rutas del panel super-admin */}
+        {/* ─── Rutas del panel super-admin ──────────────────── */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
@@ -56,69 +57,13 @@ export const AppRoutes = () => {
           <Route path="audit-logs" element={<AuditLogsPage />} />
         </Route>
 
-        {/* Rutas de colegios (CEO, docente, estudiante, padre) */}
+        {/* ─── Rutas de colegios (protegidas) ──────────────── */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/my-profile" element={<MyProfilePage />} />
-            <Route
-  path="/my-sections"
-  element={
-    <ProtectedRoute allowedRoles={['ceo', 'docente']}>
-      <MySectionsPage />
-    </ProtectedRoute>
-  }
-/>
-<Route
-  path="/my-sections/:sectionId/attendance"
-  element={
-    <ProtectedRoute allowedRoles={['ceo', 'docente']}>
-      <SectionAttendancePage />
-    </ProtectedRoute>
-  }
-/>
 
-            {/* CEO */}
-            <Route
-              path="/students"
-              element={
-                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
-                  <StudentsListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teachers"
-              element={
-                <ProtectedRoute allowedRoles={['ceo']}>
-                  <TeachersListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/parents"
-              element={
-                <ProtectedRoute allowedRoles={['ceo']}>
-                  <ParentsListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/subjects"
-              element={
-                <ProtectedRoute allowedRoles={['ceo']}>
-                  <SubjectsListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/courses"
-              element={
-                <ProtectedRoute allowedRoles={['ceo']}>
-                  <CoursesListPage />
-                </ProtectedRoute>
-              }
-            />
+            {/* Secciones (CEO) */}
             <Route
               path="/sections"
               element={
@@ -128,6 +73,84 @@ export const AppRoutes = () => {
               }
             />
             <Route
+              path="/sections/:id"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <SectionDetailPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Secciones y asistencias (CEO + docente) */}
+            <Route
+              path="/my-sections"
+              element={
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+                  <MySectionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/my-sections/:sectionId/attendance"
+              element={
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+                  <SectionAttendancePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Estudiantes */}
+            <Route
+              path="/students"
+              element={
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+                  <StudentsListPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Docentes */}
+            <Route
+              path="/teachers"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <TeachersListPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Padres */}
+            <Route
+              path="/parents"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <ParentsListPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Asignaturas */}
+            <Route
+              path="/subjects"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <SubjectsListPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Cursos */}
+            <Route
+              path="/courses"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <CoursesListPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Matrículas */}
+            <Route
               path="/enrollments"
               element={
                 <ProtectedRoute allowedRoles={['ceo']}>
@@ -135,6 +158,8 @@ export const AppRoutes = () => {
                 </ProtectedRoute>
               }
             />
+
+            {/* Finanzas */}
             <Route
               path="/finance"
               element={
@@ -180,7 +205,7 @@ export const AppRoutes = () => {
             <Route
               path="/my-courses/:courseId/attendance"
               element={
-                <ProtectedRoute allowedRoles={['docente']}>
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
                   <CourseAttendancePage />
                 </ProtectedRoute>
               }
@@ -248,13 +273,9 @@ export const AppRoutes = () => {
           </Route>
         </Route>
 
+        {/* ─── Redirects ────────────────────────────────────── */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-<Route path="/forgot-password" element={<ForgotPasswordPage />} />
-<Route path="/reset-password" element={<ResetPasswordPage />} />
-<Route path="/admin/login" element={<AdminLoginPage />} />
-        
       </Routes>
     </BrowserRouter>
   );

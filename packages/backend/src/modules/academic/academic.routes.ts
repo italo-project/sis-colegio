@@ -8,21 +8,69 @@ export const academicRouter = Router();
 
 academicRouter.use(resolveTenant, requireAuth);
 
-// Años escolares
+// ─── Años escolares ─────────────────────────────────────────────
 academicRouter.get('/years', requireRole('ceo', 'docente'), academicController.listYears);
-academicRouter.get('/years/current', requireRole('ceo', 'docente', 'estudiante', 'padre'), academicController.getCurrentYear);
+academicRouter.get(
+  '/years/current',
+  requireRole('ceo', 'docente', 'estudiante', 'padre'),
+  academicController.getCurrentYear,
+);
 academicRouter.post('/years', requireRole('ceo'), academicController.createYear);
 academicRouter.patch('/years/:id', requireRole('ceo'), academicController.updateYear);
 
-// Grados (catálogo)
-academicRouter.get('/grade-levels', requireRole('ceo', 'docente'), academicController.listGradeLevels);
+// ─── Grados (catálogo, solo lectura) ────────────────────────────
+academicRouter.get(
+  '/grade-levels',
+  requireRole('ceo', 'docente'),
+  academicController.listGradeLevels,
+);
 
-// Secciones
+// ─── Secciones ──────────────────────────────────────────────────
+// Listado general
 academicRouter.get('/sections', requireRole('ceo', 'docente'), academicController.listSections);
-academicRouter.get('/sections/:id', requireRole('ceo', 'docente'), academicController.getSectionById);
+
+// Detalle y datos relacionados (van ANTES de /:id genérico)
+academicRouter.get(
+  '/sections/:id/detail',
+  requireRole('ceo', 'docente'),
+  academicController.getSectionDetail,
+);
+academicRouter.get(
+  '/sections/:id/students',
+  requireRole('ceo', 'docente'),
+  academicController.listSectionStudents,
+);
+academicRouter.get(
+  '/sections/:id/courses',
+  requireRole('ceo', 'docente'),
+  academicController.listSectionCourses,
+);
+
+// Asignación de tutor
+academicRouter.patch(
+  '/sections/:id/tutor',
+  requireRole('ceo'),
+  academicController.assignTutor,
+);
+
+// Detalle básico
+academicRouter.get(
+  '/sections/:id',
+  requireRole('ceo', 'docente'),
+  academicController.getSectionById,
+);
+
+// Crear, editar, desactivar
 academicRouter.post('/sections', requireRole('ceo'), academicController.createSection);
 academicRouter.patch('/sections/:id', requireRole('ceo'), academicController.updateSection);
 academicRouter.delete('/sections/:id', requireRole('ceo'), academicController.deactivateSection);
-academicRouter.post('/sections/:id/reactivate', requireRole('ceo'), academicController.reactivateSection);
-academicRouter.delete('/sections/:id/hard', requireRole('ceo'), academicController.hardDeleteSection);
-academicRouter.patch('/sections/:id/tutor', requireRole('ceo'), academicController.assignTutor);
+academicRouter.post(
+  '/sections/:id/reactivate',
+  requireRole('ceo'),
+  academicController.reactivateSection,
+);
+academicRouter.delete(
+  '/sections/:id/hard',
+  requireRole('ceo'),
+  academicController.hardDeleteSection,
+);
