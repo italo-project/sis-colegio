@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { UserCircle } from 'lucide-react';
 import {
   LayoutDashboard,
   Users,
@@ -140,6 +141,12 @@ const menuItems: MenuItem[] = [
     label: 'Mis pagos',
     icon: Receipt,
     roles: ['padre'],
+  },
+    {
+    to: '/my-profile',
+    label: 'Mi perfil',
+    icon: UserCircle,
+    roles: ['ceo', 'docente', 'estudiante', 'padre'],
   },
 ];
 

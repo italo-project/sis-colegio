@@ -75,3 +75,5 @@ packages/backend/cat3.json
 packages/backend/eval*.json
 packages/backend/facturas.csv
 packages/backend/*.csv
+# Uploads (fotos de perfil)
+packages/backend/uploads/

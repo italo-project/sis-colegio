@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type {
   Child,
+  FullProfile,
   MyAttendanceReport,
   MyCourse,
   MyGradeReport,
@@ -68,4 +69,40 @@ export const meApi = {
     const { data } = await apiClient.get<{ items: MyPayment[]; total: number }>('/me/payments');
     return data;
   },
+
+    async getFullProfile() {
+    const { data } = await apiClient.get<FullProfile>('/me/full-profile');
+    return data;
+  },
+
+  async updatePhone(phone: string | null) {
+    const { data } = await apiClient.patch('/me/phone', { phone });
+    return data;
+  },
+
+  async updatePassword(currentPassword: string, newPassword: string) {
+    const { data } = await apiClient.patch('/me/password', { currentPassword, newPassword });
+    return data;
+  },
+
+  async updateCeoProfile(payload: { fullName?: string; email?: string }) {
+    const { data } = await apiClient.patch('/me/profile-ceo', payload);
+    return data;
+  },
+
+  async updateAvatar(file: File) {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const { data } = await apiClient.patch('/me/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  async deleteAvatar() {
+    const { data } = await apiClient.delete('/me/avatar');
+    return data;
+  },
+
+
 };

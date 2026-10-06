@@ -8,6 +8,15 @@ import { studentParentsRepository } from '../student-parents/student-parents.rep
 import { attendanceRecordsRepository } from '../attendance/attendance.repository';
 import { invoicesRepository, paymentsRepository } from '../finance/finance.repository';
 import { reportsRepository } from '../finance/finance.repository';
+import { verifyPassword, hashPassword } from '../../utils/password';
+import { prisma } from '../../config/prisma';     
+import {
+  updateCeoProfileSchema,
+  updatePasswordSchema,
+  updatePhoneSchema,
+} from './me.schemas';
+
+
 import {
   computeAttendanceSummary,
   getStudentAttendanceReport,
@@ -553,6 +562,191 @@ export const meController = {
       summary: statement.summary,
       payments: statement.payments,
     });
+  },
+
+    /**
+   * GET /api/me/full-profile
+   * Devuelve el perfil completo del usuario autenticado según su rol.
+   */
+  async fullProfile(req: Request, res: Response) {
+    const user = req.user!;
+    const schema = req.tenant!.schemaName;
+
+    // Datos globales del usuario
+    const globalUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        avatarUrl: true,
+        isSuperAdmin: true,
+      },
+    });
+
+    if (!globalUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Datos específicos del rol
+    let roleData: unknown = null;
+
+    if (user.role === 'ceo') {
+      // El CEO no tiene tabla propia, solo datos en users + organization
+      roleData = null;
+    } else if (user.role === 'docente') {
+      roleData = await teachersRepository.findByUserId(schema, user.userId);
+    } else if (user.role === 'estudiante') {
+      roleData = await studentsRepository.findByUserId(schema, user.userId);
+    } else if (user.role === 'padre') {
+      roleData = await parentsRepository.findByUserId(schema, user.userId);
+    }
+
+    res.json({
+      role: user.role,
+      user: globalUser,
+      roleData,
+      tenant: {
+        id: req.tenant!.id,
+        subdomain: req.tenant!.subdomain,
+        name: req.tenant!.name,
+      },
+    });
+  },
+
+  /**
+   * PATCH /api/me/phone
+   * Permite a cualquier usuario actualizar su teléfono.
+   */
+  async updatePhone(req: Request, res: Response) {
+    const user = req.user!;
+    const schema = req.tenant!.schemaName;
+
+    const parsed = updatePhoneSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    const phone = parsed.data.phone;
+
+    if (user.role === 'docente') {
+      const teacher = await teachersRepository.findByUserId(schema, user.userId);
+      if (!teacher) return res.status(404).json({ error: 'Docente no encontrado' });
+      await teachersRepository.update(schema, teacher.id, { phone: phone ?? undefined });
+    } else if (user.role === 'estudiante') {
+      const student = await studentsRepository.findByUserId(schema, user.userId);
+      if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
+      await studentsRepository.update(schema, student.id, { phone: phone ?? undefined });
+    } else if (user.role === 'padre') {
+      const parent = await parentsRepository.findByUserId(schema, user.userId);
+      if (!parent) return res.status(404).json({ error: 'Padre no encontrado' });
+      await parentsRepository.update(schema, parent.id, { phone: phone ?? undefined });
+    } else if (user.role === 'ceo') {
+      // El CEO no tiene tabla propia. Por ahora, no se puede actualizar el teléfono del CEO sin una tabla.
+      return res.status(400).json({
+        error: 'El CEO debe actualizar su teléfono desde el panel de super-admin',
+      });
+    }
+
+    res.json({ ok: true, phone });
+  },
+
+  /**
+   * PATCH /api/me/password
+   * Permite al usuario cambiar su propia contraseña.
+   */
+  async updatePassword(req: Request, res: Response) {
+    const user = req.user!;
+
+    const parsed = updatePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.userId } });
+    if (!dbUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const ok = await verifyPassword(parsed.data.currentPassword, dbUser.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+    }
+
+    const newHash = await hashPassword(parsed.data.newPassword);
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: { passwordHash: newHash },
+    });
+
+    res.json({ ok: true, message: 'Contraseña actualizada' });
+  },
+
+  /**
+   * PATCH /api/me/avatar
+   * Sube una foto de perfil (multipart/form-data con campo "avatar").
+   */
+  async updateAvatar(req: Request, res: Response) {
+    const user = req.user!;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+    }
+
+    // URL pública del archivo
+    const avatarUrl = `/uploads/avatars/${file.filename}`;
+
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: { avatarUrl },
+    });
+
+    res.json({ ok: true, avatarUrl });
+  },
+
+  /**
+   * DELETE /api/me/avatar
+   * Elimina la foto de perfil actual.
+   */
+  async deleteAvatar(req: Request, res: Response) {
+    const user = req.user!;
+
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: { avatarUrl: null },
+    });
+
+    res.json({ ok: true });
+  },
+
+  /**
+   * PATCH /api/me/profile-ceo
+   * Permite al CEO editar sus propios datos (nombre, email).
+   */
+  async updateCeoProfile(req: Request, res: Response) {
+    const user = req.user!;
+    if (user.role !== 'ceo') {
+      return res.status(403).json({ error: 'Solo el CEO puede usar este endpoint' });
+    }
+
+    const parsed = updateCeoProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    const data: Record<string, unknown> = {};
+    if (parsed.data.fullName !== undefined) data.fullName = parsed.data.fullName;
+    if (parsed.data.email !== undefined) data.email = parsed.data.email;
+
+    if (parsed.data.email) {
+      const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+      if (existing && existing.id !== user.userId) {
+        return res.status(409).json({ error: 'Ese email ya está en uso' });
+      }
+    }
+
+    if (Object.keys(data).length > 0) {
+      await prisma.user.update({ where: { id: user.userId }, data });
+    }
+
+    res.json({ ok: true });
   },
 
 };

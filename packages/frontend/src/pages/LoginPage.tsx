@@ -8,6 +8,7 @@ import { authApi } from '@/api/auth.api';
 import { useAuthStore } from '@/stores/auth.store';
 import { getErrorMessage } from '@/api/client';
 import { setCurrentSubdomain } from '@/lib/subdomain';
+import { Link } from 'react-router-dom';
 
 const loginSchema = z.object({
   subdomain: z.string().min(2, 'Requerido'),
@@ -126,9 +127,12 @@ export const LoginPage = () => {
           </button>
         </form>
 
-        <p className="text-xs text-center text-gray-400 mt-6">
-          ¿Olvidaste tu contraseña? Contacta al administrador del colegio.
-        </p>
+        <Link
+  to="/forgot-password"
+  className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium mt-6"
+>
+  ¿Olvidaste tu contraseña?
+</Link>
       </div>
     </div>
   );

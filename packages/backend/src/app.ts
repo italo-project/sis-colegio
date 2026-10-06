@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import { authRouter } from './modules/auth/auth.routes';
@@ -20,11 +21,22 @@ import { financeRouter } from './modules/finance/finance.routes';
 import { mpRouter } from './modules/mercadopago/mp.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 
+
 export const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+// Servir archivos subidos (fotos de perfil)
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    next();
+  },
+  express.static(path.join(process.cwd(), 'uploads')),
+);
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

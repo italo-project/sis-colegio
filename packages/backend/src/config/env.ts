@@ -27,6 +27,10 @@ const schema = z.object({
 
   // Cifrado
   ENCRYPTION_KEY: z.string().min(16),
+
+    // Email
+  RESEND_API_KEY: z.string().min(10),
+  RESEND_FROM_EMAIL: z.string().min(5),
 });
 
 const parsed = schema.safeParse(process.env);

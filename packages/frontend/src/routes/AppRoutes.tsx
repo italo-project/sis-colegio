@@ -30,6 +30,9 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { UsersListPage } from '@/pages/admin/UsersListPage';
 import { AuditLogsPage } from '@/pages/admin/AuditLogsPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { MyProfilePage } from '@/pages/MyProfilePage';
 
 export const AppRoutes = () => {
   return (
@@ -55,6 +58,7 @@ export const AppRoutes = () => {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/my-profile" element={<MyProfilePage />} />
 
             {/* CEO */}
             <Route
@@ -228,6 +232,10 @@ export const AppRoutes = () => {
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+<Route path="/reset-password" element={<ResetPasswordPage />} />
+<Route path="/admin/login" element={<AdminLoginPage />} />
         
       </Routes>
     </BrowserRouter>

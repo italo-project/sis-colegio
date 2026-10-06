@@ -119,3 +119,20 @@ export type MyInvoice = {
   student?: { firstName: string; lastName: string; dni: string };
   feeConcept?: { name: string; code: string };
 };
+
+export type FullProfile = {
+  role: 'ceo' | 'docente' | 'estudiante' | 'padre';
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    avatarUrl: string | null;
+    isSuperAdmin: boolean;
+  };
+  roleData: Record<string, unknown> | null;
+  tenant: {
+    id: string;
+    subdomain: string;
+    name: string;
+  };
+};

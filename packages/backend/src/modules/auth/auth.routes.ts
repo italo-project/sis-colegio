@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, refresh, superAdminLogin } from './auth.controller';
+import { register, login, refresh, superAdminLogin, forgotPassword, resetPassword } from './auth.controller';
 import { resolveTenant } from '../../middleware/tenant';
 
 export const authRouter = Router();
@@ -13,3 +13,7 @@ authRouter.post('/refresh', resolveTenant, refresh);
 
 // Login del super-admin (sin subdominio)
 authRouter.post('/super-admin/login', superAdminLogin);
+
+// Recuperación de contraseña (público, sin auth)
+authRouter.post('/forgot-password', forgotPassword);
+authRouter.post('/reset-password', resetPassword);

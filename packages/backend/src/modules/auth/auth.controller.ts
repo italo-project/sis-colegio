@@ -4,6 +4,11 @@ import { prisma } from '../../config/prisma';
 import { hashPassword, verifyPassword } from '../../utils/password';
 import { signAccessToken, createRefreshToken, rotateRefreshToken } from '../../utils/jwt';
 import { provisionTenantSchema } from '../../utils/tenant-schema';
+import { env } from '../../config/env';
+import { forgotPasswordSchema, resetPasswordSchema } from './auth.schemas';
+import { passwordResetRepository } from './auth.repository';
+import { sendPasswordResetEmail } from '../../services/email.service';
+
 
 // ═══════════════════════════════════════════════════════════════
 // SCHEMAS
@@ -209,5 +214,80 @@ export const superAdminLogin = async (req: Request, res: Response) => {
     },
     role: 'admin',
     tenant: { id: '', subdomain: 'admin' },
+  });
+};
+
+// ═══ Recuperación de contraseña ═══
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+
+  const { email } = parsed.data;
+
+  // Buscar usuario
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // IMPORTANTE: siempre responder OK, incluso si el email no existe
+  // (para no revelar qué emails están registrados) [citation:1][citation:11]
+  if (!user || !user.isActive) {
+    return res.json({
+      ok: true,
+      message: 'Si el email existe, recibirás un enlace para recuperar tu contraseña.',
+    });
+  }
+
+  try {
+    const { token } = await passwordResetRepository.createToken(user.id);
+
+    const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    await sendPasswordResetEmail({
+      to: user.email,
+      fullName: user.fullName,
+      resetUrl,
+    });
+
+    return res.json({
+      ok: true,
+      message: 'Si el email existe, recibirás un enlace para recuperar tu contraseña.',
+    });
+  } catch (err) {
+    console.error('❌ Error enviando email de recuperación:', err);
+    return res.status(500).json({
+      error: 'No se pudo enviar el email. Intenta más tarde.',
+    });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+  }
+
+  const { token, newPassword } = parsed.data;
+
+  const validToken = await passwordResetRepository.findValidToken(token);
+  if (!validToken) {
+    return res.status(400).json({
+      error: 'El enlace es inválido o ha expirado. Solicita uno nuevo.',
+    });
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: validToken.user_id },
+    data: { passwordHash },
+  });
+
+  await passwordResetRepository.markAsUsed(validToken.id);
+
+  return res.json({
+    ok: true,
+    message: 'Contraseña actualizada. Ya puedes iniciar sesión.',
   });
 };
