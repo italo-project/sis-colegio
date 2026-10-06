@@ -9,8 +9,15 @@ export const ImpersonationBanner = () => {
   if (!impersonation) return null;
 
   const handleEnd = () => {
-    endImpersonation();
+    // 1. Navegar PRIMERO a la ruta de admin (para que React Router
+    //    no evalúe la ruta actual con el usuario viejo)
     navigate('/admin/users');
+
+    // 2. Terminar impersonación en el siguiente tick (después de que
+    //    React Router haya procesado la navegación)
+    setTimeout(() => {
+      endImpersonation();
+    }, 0);
   };
 
   return (
@@ -19,7 +26,8 @@ export const ImpersonationBanner = () => {
         <AlertTriangle className="w-4 h-4" />
         <span>
           Estás viendo el sistema como{' '}
-          <strong>{impersonation.impersonatedUser.fullName}</strong> ({impersonation.impersonatedUser.email})
+          <strong>{impersonation.impersonatedUser.fullName}</strong> (
+          {impersonation.impersonatedUser.email})
         </span>
       </div>
       <button
