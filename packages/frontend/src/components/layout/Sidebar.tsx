@@ -102,6 +102,12 @@ const menuItems: MenuItem[] = [
     icon: BookOpen,
     roles: ['docente'],
   },
+    {
+    to: '/my-sections',
+    label: 'Asistencias',
+    icon: CalendarCheck,
+    roles: ['ceo', 'docente'],
+  },
   {
     to: '/students',
     label: 'Estudiantes',

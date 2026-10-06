@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { EnrollmentFormModal } from './EnrollmentFormModal';
 import { BulkEnrollModal } from './BulkEnrollModal';
 import { getErrorMessage } from '@/api/client';
+import { formatCourse } from '@/lib/format';
 import type { Enrollment } from '@/types/enrollment';
 
 export const EnrollmentsListPage = () => {
@@ -155,13 +156,14 @@ export const EnrollmentsListPage = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{enrollment.student.dni}</td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {enrollment.course.subject.name}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {enrollment.course.gradeLevel.name} "{enrollment.course.section.name}"
-                      </div>
-                    </td>
+  <div className="font-medium text-gray-900">
+    {formatCourse({
+      subject: enrollment.course.subject,
+      section: enrollment.course.section,
+      academicYear: enrollment.course.academicYear,
+    })}
+  </div>
+</td>
                     <td className="px-4 py-3 text-gray-600">
                       {enrollment.course.teacher.lastName}, {enrollment.course.teacher.firstName}
                     </td>

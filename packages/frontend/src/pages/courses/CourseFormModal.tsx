@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { coursesApi } from '@/api/courses.api';
 import { apiClient, getErrorMessage } from '@/api/client';
+import { formatCourse } from '@/lib/format';
 import type { CreateCoursePayload, Course } from '@/types/course';
 
 type Props = {
@@ -190,8 +191,15 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
           </div>
         ) : (
           <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
-            <div><strong>Curso:</strong> {course?.subject.name} — {course?.section.gradeLevel?.name} "{course?.section.name}"</div>
-            <div><strong>Año:</strong> {course?.academicYear.year}</div>
+            <div>
+              <strong>Curso:</strong>{' '}
+              {course &&
+                formatCourse({
+                  subject: course.subject,
+                  section: course.section,
+                  academicYear: course.academicYear,
+                })}
+            </div>
           </div>
         )}
 

@@ -9,6 +9,18 @@ export type Section = {
   createdAt: string;
   updatedAt: string;
 
+  // Datos expandidos (siempre vienen en list)
+  gradeLevel?: {
+    id: string;
+    code: string;
+    name: string;
+    level: string;
+  };
+  academicYear?: {
+    id: string;
+    year: number;
+  };
+
   // Solo en getById
   canBeDeleted?: boolean;
   relatedDataCount?: number;

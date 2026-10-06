@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { enrollmentsApi } from '@/api/enrollments.api';
 import { coursesApi } from '@/api/courses.api';
 import { sectionsApi } from '@/api/sections.api';
+import { formatCourse } from '@/lib/format';
 import { apiClient, getErrorMessage } from '@/api/client';
 
 type Props = {
@@ -161,7 +162,7 @@ export const BulkEnrollModal = ({ open, onClose, onSuccess }: Props) => {
             <option value="">Selecciona...</option>
             {courses?.items.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.subject.name} — {c.section.gradeLevel?.name} "{c.section.name}" ({c.academicYear.year})
+                {formatCourse(c)}
               </option>
             ))}
           </select>

@@ -44,3 +44,4 @@ meRouter.get('/invoices', meController.myInvoices);
 meRouter.get('/invoices/:id', meController.myInvoiceDetail);
 meRouter.get('/payments', meController.myPayments);
 meRouter.get('/children/:id/payments', meController.myChildPayments);
+meRouter.get('/sections', meController.mySections);

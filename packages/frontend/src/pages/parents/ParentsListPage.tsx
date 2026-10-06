@@ -3,24 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { parentsApi } from '@/api/parents.api';
 import { Button } from '@/components/ui/Button';
-import { ParentFormModal } from './ParentFormModal';
+import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
+import { ParentFormModal } from './ParentFormModal.tsx';
 import { getErrorMessage } from '@/api/client';
 import type { Parent } from '@/types/parent';
 
 export const ParentsListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Parent | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  const activeParam: 'true' | 'false' | undefined =
+    statusFilter === 'active' ? 'true' : statusFilter === 'inactive' ? 'false' : undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['parents', search, activeOnly],
+    queryKey: ['parents', search, statusFilter],
     queryFn: () =>
       parentsApi.list({
         q: search || undefined,
-        active: activeOnly ? 'true' : undefined,
+        active: activeParam,
         limit: 100,
         offset: 0,
       }),
@@ -154,15 +158,7 @@ export const ParentsListPage = () => {
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Solo activos
-          </label>
+          <StatusFilter value={statusFilter} onChange={setStatusFilter} />
         </div>
 
         {isLoading ? (

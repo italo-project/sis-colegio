@@ -3,25 +3,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle, UserCog } from 'lucide-react';
 import { sectionsApi } from '@/api/sections.api';
 import { Button } from '@/components/ui/Button';
-import { SectionFormModal } from './SectionFormModal';
-import { AssignTutorModal } from './AssignTutorModal';
+import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
+import { SectionFormModal } from './SectionFormModal.tsx';
+import { AssignTutorModal } from './AssignTutorModal.tsx';
 import { getErrorMessage } from '@/api/client';
+import { Link } from 'react-router-dom';
+import { CalendarCheck } from 'lucide-react';
 import type { Section } from '@/types/section';
 
 export const SectionsListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Section | null>(null);
   const [tutorFor, setTutorFor] = useState<Section | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  const activeParam: 'true' | 'false' | undefined =
+    statusFilter === 'active' ? 'true' : statusFilter === 'inactive' ? 'false' : undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['sections', activeOnly],
+    queryKey: ['sections', statusFilter],
     queryFn: () =>
       sectionsApi.list({
-        active: activeOnly ? 'true' : undefined,
+        active: activeParam,
       }),
   });
 
@@ -152,15 +158,11 @@ export const SectionsListPage = () => {
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Solo activas
-          </label>
+          <StatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+            labels={{ all: 'Todas', active: 'Activas', inactive: 'Inactivas' }}
+          />
         </div>
 
         {isLoading ? (
@@ -185,8 +187,13 @@ export const SectionsListPage = () => {
                 {filteredSections.map((section) => (
                   <tr key={section.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">"{section.name}"</div>
-                    </td>
+  <div className="font-medium text-gray-900">
+    {section.gradeLevel?.name ?? '—'} "{section.name}"
+  </div>
+  <div className="text-xs text-gray-500">
+    {section.academicYear?.year ?? '—'}
+  </div>
+</td>
                     <td className="px-4 py-3 text-gray-600">{section.capacity ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {section.tutorUserId ? (
@@ -212,8 +219,15 @@ export const SectionsListPage = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setTutorFor(section)}
+  <Link
+    to={`/my-sections/${section.id}/attendance`}
+    className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+    title="Ver asistencias"
+  >
+    <CalendarCheck className="w-4 h-4" />
+  </Link>
+  <button
+    onClick={() => setTutorFor(section)}
                           className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
                           title="Asignar tutor"
                         >

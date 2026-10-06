@@ -3,23 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { coursesApi } from '@/api/courses.api';
 import { Button } from '@/components/ui/Button';
-import { CourseFormModal } from './CourseFormModal';
+import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
+import { CourseFormModal } from './CourseFormModal.tsx';
 import { getErrorMessage } from '@/api/client';
+import { formatCourse } from '@/lib/format';
 import type { Course } from '@/types/course';
 
 export const CoursesListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  const activeParam: 'true' | 'false' | undefined =
+    statusFilter === 'active' ? 'true' : statusFilter === 'inactive' ? 'false' : undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['courses', activeOnly],
+    queryKey: ['courses', statusFilter],
     queryFn: () =>
       coursesApi.list({
-        active: activeOnly ? 'true' : undefined,
+        active: activeParam,
         limit: 200,
         offset: 0,
       }),
@@ -159,15 +164,7 @@ export const CoursesListPage = () => {
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Solo activos
-          </label>
+          <StatusFilter value={statusFilter} onChange={setStatusFilter} />
         </div>
 
         {isLoading ? (
@@ -193,11 +190,10 @@ export const CoursesListPage = () => {
                 {filteredCourses.map((course) => (
                   <tr key={course.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{course.subject.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {course.section.gradeLevel?.name ?? '—'} "{course.section.name}"
-                      </div>
-                    </td>
+  <div className="font-medium text-gray-900">
+    {formatCourse(course)}
+  </div>
+</td>
                     <td className="px-4 py-3 text-gray-600">{course.academicYear.year}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {course.teacher.lastName}, {course.teacher.firstName}

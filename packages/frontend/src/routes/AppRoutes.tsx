@@ -33,6 +33,8 @@ import { AuditLogsPage } from '@/pages/admin/AuditLogsPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { MyProfilePage } from '@/pages/MyProfilePage';
+import { MySectionsPage } from '@/pages/teacher/MySectionsPage';
+import { SectionAttendancePage } from '@/pages/teacher/SectionAttendancePage';
 
 export const AppRoutes = () => {
   return (
@@ -59,6 +61,22 @@ export const AppRoutes = () => {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/my-profile" element={<MyProfilePage />} />
+            <Route
+  path="/my-sections"
+  element={
+    <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+      <MySectionsPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/my-sections/:sectionId/attendance"
+  element={
+    <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+      <SectionAttendancePage />
+    </ProtectedRoute>
+  }
+/>
 
             {/* CEO */}
             <Route

@@ -749,4 +749,115 @@ export const meController = {
     res.json({ ok: true });
   },
 
+    /**
+   * GET /api/me/sections
+   * Devuelve las secciones donde el docente imparte al menos un curso.
+   * Marca si es tutor de cada sección.
+   * El CEO ve TODAS las secciones del colegio.
+   */
+  async mySections(req: Request, res: Response) {
+    const user = req.user!;
+    const schema = req.tenant!.schemaName;
+
+    let rows;
+
+    if (user.role === 'ceo') {
+      // CEO: todas las secciones activas
+      rows = await prisma.$queryRawUnsafe<
+        Array<{
+          section_id: string;
+          section_name: string;
+          capacity: number | null;
+          tutor_user_id: string | null;
+          grade_level_name: string;
+          grade_level_code: string;
+          grade_level_level: string;
+          grade_level_order: number;
+          academic_year_year: number;
+          courses_count: bigint;
+        }>
+      >(
+        `SELECT
+           s.id AS section_id,
+           s.name AS section_name,
+           s.capacity,
+           s.tutor_user_id,
+           gl.name AS grade_level_name,
+           gl.code AS grade_level_code,
+           gl.level AS grade_level_level,
+           gl.order_index AS grade_level_order,
+           ay.year AS academic_year_year,
+           COUNT(c.id)::bigint AS courses_count
+         FROM "${schema}".sections s
+         JOIN "${schema}".grade_levels gl ON gl.id = s.grade_level_id
+         JOIN "${schema}".academic_years ay ON ay.id = s.academic_year_id
+         LEFT JOIN "${schema}".courses c ON c.section_id = s.id AND c.is_active = true
+         WHERE s.is_active = true
+         GROUP BY s.id, s.name, s.capacity, s.tutor_user_id,
+                  gl.name, gl.code, gl.level, gl.order_index, ay.year
+         ORDER BY ay.year DESC, gl.order_index ASC, s.name ASC`,
+      );
+    } else if (user.role === 'docente') {
+      // ...
+      // Docente: secciones donde imparte al menos un curso
+      rows = await prisma.$queryRawUnsafe<
+        Array<{
+          section_id: string;
+          section_name: string;
+          capacity: number | null;
+          tutor_user_id: string | null;
+          grade_level_name: string;
+          grade_level_code: string;
+          grade_level_level: string;
+          grade_level_order: number;
+          academic_year_year: number;
+          courses_count: bigint;
+        }>
+      >(
+        `SELECT
+           s.id AS section_id,
+           s.name AS section_name,
+           s.capacity,
+           s.tutor_user_id,
+           gl.name AS grade_level_name,
+           gl.code AS grade_level_code,
+           gl.level AS grade_level_level,
+           gl.order_index AS grade_level_order,
+           ay.year AS academic_year_year,
+           COUNT(c.id)::bigint AS courses_count
+         FROM "${schema}".sections s
+         JOIN "${schema}".grade_levels gl ON gl.id = s.grade_level_id
+         JOIN "${schema}".academic_years ay ON ay.id = s.academic_year_id
+         JOIN "${schema}".courses c ON c.section_id = s.id AND c.is_active = true
+         JOIN "${schema}".teachers t ON t.id = c.teacher_id
+         WHERE s.is_active = true AND t.user_id = $1::uuid
+         GROUP BY s.id, s.name, s.capacity, s.tutor_user_id,
+                  gl.name, gl.code, gl.level, gl.order_index, ay.year
+         ORDER BY ay.year DESC, gl.order_index ASC, s.name ASC`,
+        user.userId,
+      );
+    } else {
+      return res.status(403).json({ error: 'Rol no autorizado' });
+    }
+
+    res.json({
+      items: rows.map((r) => ({
+        sectionId: r.section_id,
+        sectionName: r.section_name,
+        capacity: r.capacity,
+        isTutor: r.tutor_user_id === user.userId,
+        coursesCount: Number(r.courses_count),
+        gradeLevel: {
+          name: r.grade_level_name,
+          code: r.grade_level_code,
+          level: r.grade_level_level,
+        },
+        academicYear: {
+          year: r.academic_year_year,
+        },
+      })),
+      total: rows.length,
+    });
+  },
+
 };

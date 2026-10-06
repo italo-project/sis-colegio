@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { formatDateEs } from '@/lib/dates';
 import type { AttendanceSession, AttendanceStatus } from '@/types/grades';
-import type { Course } from '@/types/course';
 import { useAuthStore } from '@/stores/auth.store';
 
 const statusLabels: Record<AttendanceStatus, string> = {
@@ -18,9 +17,6 @@ const statusLabels: Record<AttendanceStatus, string> = {
   absent: 'Faltó',
 };
 
-/**
- * Fecha de hoy en formato YYYY-MM-DD (zona horaria Perú).
- */
 const getTodayString = (): string => {
   const now = new Date();
   const peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
@@ -30,27 +26,45 @@ const getTodayString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export const CourseAttendancePage = () => {
-  const { courseId } = useParams<{ courseId: string }>();
+type SectionDetail = {
+  id: string;
+  name: string;
+  tutorUserId: string | null;
+  gradeLevel?: { name: string };
+  academicYear?: { year: number };
+};
+
+export const SectionAttendancePage = () => {
+  const { sectionId } = useParams<{ sectionId: string }>();
   const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.role);
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [sheetFor, setSheetFor] = useState<AttendanceSession | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  const { data: course } = useQuery({
-    queryKey: ['course', courseId],
+  const isCeo = role === 'ceo';
+  const today = getTodayString();
+
+  // Cargar detalles de la sección
+  const { data: section } = useQuery({
+    queryKey: ['section-detail', sectionId],
     queryFn: async () => {
-      const { data } = await apiClient.get<Course>(`/courses/${courseId}`);
+      const { data } = await apiClient.get<SectionDetail>(`/academic/sections/${sectionId}`);
       return data;
     },
-    enabled: !!courseId,
+    enabled: !!sectionId,
   });
 
+  // Determinar si puede tomar asistencia
+  const isTutor = !!(section && currentUserId && section.tutorUserId === currentUserId);
+  const canCreateAttendance = isCeo || isTutor;
+
+  // Cargar sesiones de asistencia
   const { data: sessionsData, isLoading } = useQuery({
-    queryKey: ['attendance-sessions', course?.sectionId],
-    queryFn: () => attendanceApi.listSessions({ sectionId: course?.sectionId }),
-    enabled: !!course?.sectionId,
+    queryKey: ['attendance-sessions', sectionId],
+    queryFn: () => attendanceApi.listSessions({ sectionId }),
+    enabled: !!sectionId,
   });
 
   const deleteMutation = useMutation({
@@ -61,9 +75,6 @@ export const CourseAttendancePage = () => {
     },
     onError: (err) => setToast({ type: 'error', msg: getErrorMessage(err) }),
   });
-
-  const isCeo = role === 'ceo';
-  const today = getTodayString();
 
   return (
     <div className="space-y-6">
@@ -81,37 +92,46 @@ export const CourseAttendancePage = () => {
 
       <div>
         <Link
-          to="/my-courses"
+          to={isCeo ? '/sections' : '/my-sections'}
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Mis cursos
+          {isCeo ? 'Secciones' : 'Mis secciones'}
         </Link>
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Asistencia — {course?.section.gradeLevel?.name} "{course?.section.name}"
+              Asistencias — {section?.gradeLevel?.name} "{section?.name}"
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Sección de {course?.subject.name}
-            </p>
+            <p className="text-sm text-gray-500 mt-1">{section?.academicYear?.year}</p>
           </div>
 
-          <Button
-            onClick={() => setIsCreateOpen(true)}
-            icon={<Plus className="w-4 h-4" />}
-            disabled={!course}
-          >
-            Tomar asistencia de hoy
-          </Button>
+          {canCreateAttendance && (
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              icon={<Plus className="w-4 h-4" />}
+              disabled={!section}
+            >
+              Tomar asistencia de hoy
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Aviso sobre reglas */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-        <strong>Reglas:</strong> La asistencia solo se puede tomar del día de hoy. Una vez
-        guardada, solo el CEO puede editarla o eliminarla.
-      </div>
+      {!canCreateAttendance ? (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-700 flex items-start gap-2">
+          <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>
+            Solo el tutor de esta sección o el CEO pueden tomar asistencia. Puedes ver el historial
+            a continuación.
+          </span>
+        </div>
+      ) : (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+          <strong>Reglas:</strong> La asistencia solo se puede tomar del día de hoy. Una vez
+          guardada, solo el CEO puede editarla o eliminarla.
+        </div>
+      )}
 
       {isLoading ? (
         <div className="p-12 text-center text-gray-500 text-sm">Cargando...</div>
@@ -119,9 +139,11 @@ export const CourseAttendancePage = () => {
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm mb-4">
-            Aún no has tomado asistencia para esta sección.
+            Aún no se ha tomado asistencia para esta sección.
           </p>
-          <Button onClick={() => setIsCreateOpen(true)}>Tomar la primera asistencia</Button>
+          {canCreateAttendance && (
+            <Button onClick={() => setIsCreateOpen(true)}>Tomar la primera asistencia</Button>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200">
@@ -138,7 +160,7 @@ export const CourseAttendancePage = () => {
               {sessionsData.items.map((session) => {
                 const sessionDate = String(session.sessionDate).substring(0, 10);
                 const isToday = sessionDate === today;
-                const canEdit = isCeo || isToday;
+                const canEdit = isCeo || (isTutor && isToday);
 
                 return (
                   <tr key={session.id} className="hover:bg-gray-50">
@@ -190,9 +212,9 @@ export const CourseAttendancePage = () => {
         </div>
       )}
 
-      {isCreateOpen && course && (
+      {isCreateOpen && sectionId && (
         <CreateSessionModal
-          sectionId={course.sectionId}
+          sectionId={sectionId}
           onClose={() => setIsCreateOpen(false)}
           onSuccess={(session) => {
             queryClient.invalidateQueries({ queryKey: ['attendance-sessions'] });
@@ -205,7 +227,7 @@ export const CourseAttendancePage = () => {
       {sheetFor && (
         <AttendanceSheetModal
           sessionId={sheetFor.id}
-          isCeo={isCeo}
+          canEditSession={isCeo || isTutor}
           onClose={() => {
             setSheetFor(null);
             queryClient.invalidateQueries({ queryKey: ['attendance-sessions'] });
@@ -259,16 +281,14 @@ const CreateSessionModal = ({
       <div className="space-y-4">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
           <strong>Fecha:</strong> {formatDateEs(today)}
-          <p className="mt-1 text-xs">
-            Solo puedes tomar la asistencia del día de hoy.
-          </p>
+          <p className="mt-1 text-xs">Solo puedes tomar la asistencia del día de hoy.</p>
         </div>
 
         <Input
           label="Tema (opcional)"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="Ej: Álgebra - Ecuaciones"
+          placeholder="Ej: Formación general"
         />
       </div>
     </Modal>
@@ -278,26 +298,27 @@ const CreateSessionModal = ({
 // ─── Modal de planilla de asistencia ─────────────────────────
 const AttendanceSheetModal = ({
   sessionId,
-  isCeo,
+  canEditSession,
   onClose,
 }: {
   sessionId: string;
-  isCeo: boolean;
+  canEditSession: boolean;
   onClose: () => void;
 }) => {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Record<string, AttendanceStatus>>({});
   const [saving, setSaving] = useState(false);
 
-  const { data: sheet, isLoading } = useQuery({
+  const { data: sheet, isLoading, error } = useQuery({
     queryKey: ['attendance-sheet', sessionId],
     queryFn: () => attendanceApi.getSession(sessionId),
+    retry: false,
   });
 
   const today = getTodayString();
   const sessionDate = sheet ? String(sheet.session.sessionDate).substring(0, 10) : '';
   const isToday = sessionDate === today;
-  const canEdit = isCeo || isToday;
+  const canEdit = canEditSession || isToday;
 
   const handleChange = (studentId: string, status: AttendanceStatus) => {
     if (!canEdit) return;
@@ -353,6 +374,10 @@ const AttendanceSheetModal = ({
     >
       {isLoading ? (
         <div className="p-8 text-center text-gray-500">Cargando...</div>
+      ) : error ? (
+        <div className="p-8 text-center text-red-600">
+          {error instanceof Error ? error.message : 'Error al cargar la sesión'}
+        </div>
       ) : !sheet ? (
         <div className="p-8 text-center text-gray-500">Sesión no encontrada</div>
       ) : (
@@ -360,9 +385,7 @@ const AttendanceSheetModal = ({
           {!canEdit && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-4 flex items-center gap-2">
               <Lock className="w-4 h-4" />
-              <span>
-                Esta sesión es de un día anterior. Solo el CEO puede modificarla.
-              </span>
+              <span>Solo lectura. Contacta al tutor o al CEO para modificar.</span>
             </div>
           )}
 

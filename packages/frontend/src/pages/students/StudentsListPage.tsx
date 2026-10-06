@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Search, Edit, Trash2, KeyRound, RotateCcw, AlertTriangle } from 'lucide-react';
 import { studentsApi } from '@/api/students.api';
 import { Button } from '@/components/ui/Button';
+import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
 import { StudentFormModal } from './StudentFormModal.tsx';
 import { CreateAccountModal } from './CreateAccountModal.tsx';
 import { getErrorMessage } from '@/api/client';
@@ -11,18 +12,22 @@ import type { Student } from '@/types/student';
 export const StudentsListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeOnly, setActiveOnly] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [accountFor, setAccountFor] = useState<Student | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
+  // Mapear el filtro a lo que espera el backend
+  const activeParam: 'true' | 'false' | undefined =
+    statusFilter === 'active' ? 'true' : statusFilter === 'inactive' ? 'false' : undefined;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['students', search, activeOnly],
+    queryKey: ['students', search, statusFilter],
     queryFn: () =>
       studentsApi.list({
         q: search || undefined,
-        active: activeOnly ? 'true' : undefined,
+        active: activeParam,
         limit: 100,
         offset: 0,
       }),
@@ -73,7 +78,7 @@ export const StudentsListPage = () => {
   const handleDeactivate = (student: Student) => {
     if (
       confirm(
-        `¿Desactivar a ${student.firstName} ${student.lastName}?\n\nNo se eliminará, solo quedará inactivo. Podrás reactivarlo más adelante.`,
+        `¿Desactivar a ${student.firstName} ${student.lastName}?\n\nNo se eliminará, solo quedará inactivo.`,
       )
     ) {
       deactivateMutation.mutate(student.id);
@@ -87,7 +92,6 @@ export const StudentsListPage = () => {
   };
 
   const handleHardDelete = async (student: Student) => {
-    // Primero verificamos si tiene datos asociados
     try {
       const detail = await studentsApi.getById(student.id);
 
@@ -104,7 +108,7 @@ export const StudentsListPage = () => {
         alert(
           `No se puede eliminar a ${student.firstName} ${student.lastName}.\n\n` +
             `Tiene datos asociados:\n• ${detalles.join('\n• ')}\n\n` +
-            `Solución: desactívalo en lugar de eliminarlo. Los registros académicos y financieros deben conservarse.`,
+            `Solución: desactívalo en lugar de eliminarlo.`,
         );
         return;
       }
@@ -112,7 +116,7 @@ export const StudentsListPage = () => {
       if (
         confirm(
           `¿Eliminar DEFINITIVAMENTE a ${student.firstName} ${student.lastName}?\n\n` +
-            `Esta acción NO se puede deshacer. El estudiante será borrado de la base de datos.`,
+            `Esta acción NO se puede deshacer.`,
         )
       ) {
         hardDeleteMutation.mutate(student.id);
@@ -162,15 +166,7 @@ export const StudentsListPage = () => {
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            Solo activos
-          </label>
+          <StatusFilter value={statusFilter} onChange={setStatusFilter} />
         </div>
 
         {isLoading ? (
@@ -203,7 +199,9 @@ export const StudentsListPage = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{student.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{student.email ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{student.guardianName ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {student.guardianName ?? '—'}
+                    </td>
                     <td className="px-4 py-3">
                       {student.hasAccount ? (
                         <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Users, Award, CalendarCheck } from 'lucide-react';
+import { Award, Users } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/api/client';
 import type { Course } from '@/types/course';
@@ -66,13 +66,6 @@ export const MyCoursesPage = () => {
                 >
                   <Award className="w-4 h-4" />
                   Gestionar notas
-                </Link>
-                <Link
-                  to={`/my-courses/${course.id}/attendance`}
-                  className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
-                >
-                  <CalendarCheck className="w-4 h-4" />
-                  Ver asistencias de la sección
                 </Link>
                 <Link
                   to={`/my-courses/${course.id}/students`}

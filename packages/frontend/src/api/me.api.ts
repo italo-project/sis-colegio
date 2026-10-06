@@ -104,5 +104,20 @@ export const meApi = {
     return data;
   },
 
+  async getMySections() {
+    const { data } = await apiClient.get<{
+      items: Array<{
+        sectionId: string;
+        sectionName: string;
+        capacity: number | null;
+        isTutor: boolean;
+        coursesCount: number;
+        gradeLevel: { name: string; code: string; level: string };
+        academicYear: { year: number };
+      }>;
+      total: number;
+    }>('/me/sections');
+    return data;
+  },
 
 };

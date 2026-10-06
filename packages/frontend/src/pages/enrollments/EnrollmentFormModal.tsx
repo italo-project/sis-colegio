@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { enrollmentsApi } from '@/api/enrollments.api';
 import { coursesApi } from '@/api/courses.api';
 import { apiClient, getErrorMessage } from '@/api/client';
+import { formatCourse } from '@/lib/format';
 import type { CreateEnrollmentPayload } from '@/types/enrollment';
 
 type Props = {
@@ -107,7 +108,7 @@ export const EnrollmentFormModal = ({ open, onClose, onSuccess }: Props) => {
             <option value="">Selecciona...</option>
             {courses?.items.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.subject.name} — {c.section.gradeLevel?.name} "{c.section.name}" ({c.academicYear.year})
+                {formatCourse(c)}
               </option>
             ))}
           </select>

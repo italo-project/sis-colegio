@@ -35,22 +35,54 @@ export const sectionsRepository = {
 
     if (query.yearId) {
       params.push(query.yearId);
-      conditions.push(`academic_year_id = $${params.length}::uuid`);
+      conditions.push(`s.academic_year_id = $${params.length}::uuid`);
     }
     if (query.gradeLevelId) {
       params.push(query.gradeLevelId);
-      conditions.push(`grade_level_id = $${params.length}::uuid`);
+      conditions.push(`s.grade_level_id = $${params.length}::uuid`);
     }
-    if (query.active === 'true') conditions.push('is_active = true');
-    if (query.active === 'false') conditions.push('is_active = false');
+    if (query.active === 'true') conditions.push('s.is_active = true');
+    if (query.active === 'false') conditions.push('s.is_active = false');
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const rows = await prisma.$queryRawUnsafe<SectionRow[]>(
-      `SELECT * FROM "${schemaName}".sections ${where} ORDER BY name ASC`,
+    const rows = await prisma.$queryRawUnsafe<
+      Array<
+        SectionRow & {
+          grade_level_name: string;
+          grade_level_code: string;
+          grade_level_level: string;
+          academic_year_year: number;
+        }
+      >
+    >(
+      `SELECT
+         s.*,
+         gl.name AS grade_level_name,
+         gl.code AS grade_level_code,
+         gl.level AS grade_level_level,
+         ay.year AS academic_year_year
+       FROM "${schemaName}".sections s
+       JOIN "${schemaName}".grade_levels gl ON gl.id = s.grade_level_id
+       JOIN "${schemaName}".academic_years ay ON ay.id = s.academic_year_id
+       ${where}
+       ORDER BY ay.year DESC, gl.order_index ASC, s.name ASC`,
       ...params,
     );
-    return rows.map(toApi);
+
+    return rows.map((row) => ({
+      ...toApi(row),
+      gradeLevel: {
+        id: row.grade_level_id,
+        code: row.grade_level_code,
+        name: row.grade_level_name,
+        level: row.grade_level_level,
+      },
+      academicYear: {
+        id: row.academic_year_id,
+        year: row.academic_year_year,
+      },
+    }));
   },
 
   async findById(schemaName: string, id: string) {

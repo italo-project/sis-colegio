@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Award } from 'lucide-react';
 import { meApi } from '@/api/me.api';
 import { Card } from '@/components/ui/Card';
+import { formatCourse } from '@/lib/format';
 import { formatDateShort } from '@/lib/dates';
 
 export const ChildGradesPage = () => {
@@ -44,9 +45,13 @@ export const ChildGradesPage = () => {
       ) : (
         data.courses.map((c) => (
           <Card
-            key={c.course.id}
-            title={`${c.course.subject.name} — ${c.course.gradeLevel.name} "${c.course.section.name}"`}
-          >
+  key={c.course.id}
+  title={formatCourse({
+    subject: c.course.subject,
+    section: { name: c.course.section.name, gradeLevel: c.course.gradeLevel },
+    academicYear: c.course.academicYear,
+  })}
+>
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-3 text-sm">
                 <span className="text-gray-500">

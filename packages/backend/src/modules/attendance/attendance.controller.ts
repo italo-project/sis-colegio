@@ -2,12 +2,12 @@ import { Request, Response } from 'express';
 import { getStringParam } from '../../utils/params';
 import { studentsRepository } from '../students/students.repository';
 import { enrollmentsRepository } from '../enrollments/enrollments.repository';
+import { prisma } from '../../config/prisma';
 import {
   attendanceRecordsRepository,
   attendanceSessionsRepository,
 } from './attendance.repository';
 import { canManageSection } from './attendance.helpers';
-import { prisma } from '../../config/prisma';
 import {
   bulkAttendanceRecordsSchema,
   createAttendanceSessionSchema,
@@ -15,6 +15,19 @@ import {
   updateAttendanceSessionSchema,
   upsertAttendanceRecordSchema,
 } from './attendance.schemas';
+
+/**
+ * Devuelve la fecha de hoy en formato YYYY-MM-DD (zona horaria de Perú, UTC-5).
+ */
+const getTodayString = (): string => {
+  const now = new Date();
+  // Convertir a zona horaria de Perú (UTC-5)
+  const peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
+  const year = peruTime.getFullYear();
+  const month = String(peruTime.getMonth() + 1).padStart(2, '0');
+  const day = String(peruTime.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 /**
  * Devuelve los estudiantes matriculados en cualquier curso de la sección dada
@@ -55,11 +68,20 @@ export const attendanceController = {
 
   /**
    * POST /api/attendance/sessions
+   * Regla: solo se puede crear la sesión del DÍA DE HOY.
    */
   async createSession(req: Request, res: Response) {
     const parsed = createAttendanceSessionSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    // Validar que la fecha sea HOY
+    const today = getTodayString();
+    if (parsed.data.sessionDate !== today) {
+      return res.status(400).json({
+        error: `Solo puedes tomar asistencia del día de hoy (${today}). Para registrar otro día, contacta al CEO.`,
+      });
     }
 
     const access = await canManageSection(req, parsed.data.sectionId);
@@ -99,9 +121,6 @@ export const attendanceController = {
     res.status(201).json(detailed);
   },
 
-  /**
-   * GET /api/attendance/sessions
-   */
   async listSessions(req: Request, res: Response) {
     const parsed = listAttendanceSessionsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
@@ -114,11 +133,6 @@ export const attendanceController = {
     res.json(result);
   },
 
-  /**
-   * GET /api/attendance/sessions/:id
-   * Devuelve la sesión con TODOS los estudiantes matriculados en la sección
-   * y su estado (o null si no tienen registro).
-   */
   async getSession(req: Request, res: Response) {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
@@ -129,9 +143,22 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    const access = await canManageSection(req, session.sectionId);
-    if (!access.allowed) {
-      return res.status(403).json({ error: access.reason });
+        // El CEO siempre puede ver. Los docentes solo si imparten algún curso en la sección.
+    if (req.user!.role !== 'ceo') {
+      const isTeacherOfSection = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+        `SELECT EXISTS(
+           SELECT 1 FROM "${req.tenant!.schemaName}".courses c
+           JOIN "${req.tenant!.schemaName}".teachers t ON t.id = c.teacher_id
+           WHERE c.section_id = $1::uuid AND t.user_id = $2::uuid AND c.is_active = true
+         ) AS exists`,
+        session.sectionId,
+        req.user!.userId,
+      );
+      if (!isTeacherOfSection[0]?.exists) {
+        return res.status(403).json({
+          error: 'No enseñas en esta sección',
+        });
+      }
     }
 
     const students = await getStudentsOfSection(req.tenant!.schemaName, session.sectionId);
@@ -146,7 +173,6 @@ export const attendanceController = {
       record: recordsByStudent.get(student.id) ?? null,
     }));
 
-    // Resumen
     const summary = {
       total: rows.length,
       present: rows.filter((r) => r.record?.status === 'present').length,
@@ -160,10 +186,18 @@ export const attendanceController = {
 
   /**
    * PATCH /api/attendance/sessions/:id
+   * Regla: solo el CEO puede editar sesiones ya creadas.
    */
   async updateSession(req: Request, res: Response) {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
+
+    // Solo el CEO puede editar sesiones
+    if (req.user!.role !== 'ceo') {
+      return res.status(403).json({
+        error: 'Solo el CEO puede editar sesiones de asistencia ya guardadas',
+      });
+    }
 
     const parsed = updateAttendanceSessionSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -176,11 +210,6 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    const access = await canManageSection(req, session.sectionId);
-    if (!access.allowed) {
-      return res.status(403).json({ error: access.reason });
-    }
-
     const updated = await attendanceSessionsRepository.update(
       req.tenant!.schemaName,
       id,
@@ -191,21 +220,23 @@ export const attendanceController = {
 
   /**
    * DELETE /api/attendance/sessions/:id
+   * Regla: solo el CEO puede eliminar sesiones.
    */
   async deleteSession(req: Request, res: Response) {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
+
+    if (req.user!.role !== 'ceo') {
+      return res.status(403).json({
+        error: 'Solo el CEO puede eliminar sesiones de asistencia',
+      });
+    }
 
     const session = await attendanceSessionsRepository.findById(
       req.tenant!.schemaName,
       id,
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
-
-    const access = await canManageSection(req, session.sectionId);
-    if (!access.allowed) {
-      return res.status(403).json({ error: access.reason });
-    }
 
     const deleted = await attendanceSessionsRepository.delete(
       req.tenant!.schemaName,
@@ -218,6 +249,8 @@ export const attendanceController = {
 
   /**
    * PUT /api/attendance/sessions/:id/records/:studentId
+   * Regla: solo se puede modificar la asistencia del DÍA DE HOY.
+   * Pasado el día, solo el CEO puede modificar.
    */
   async upsertRecord(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');
@@ -236,6 +269,17 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
+    // Regla: si no es CEO, solo puede modificar sesiones de HOY
+    if (req.user!.role !== 'ceo') {
+      const today = getTodayString();
+      const sessionDate = String(session.sessionDate).substring(0, 10);
+      if (sessionDate !== today) {
+        return res.status(403).json({
+          error: 'Solo puedes modificar la asistencia del día de hoy. Para fechas anteriores, contacta al CEO.',
+        });
+      }
+    }
+
     const access = await canManageSection(req, session.sectionId);
     if (!access.allowed) {
       return res.status(403).json({ error: access.reason });
@@ -246,7 +290,6 @@ export const attendanceController = {
       return res.status(404).json({ error: 'Estudiante no encontrado o inactivo' });
     }
 
-    // Validar que el estudiante pertenece a la sección
     const students = await getStudentsOfSection(req.tenant!.schemaName, session.sectionId);
     if (!students.find((s) => s.id === studentId)) {
       return res.status(400).json({
@@ -267,6 +310,7 @@ export const attendanceController = {
 
   /**
    * POST /api/attendance/sessions/:id/records/bulk
+   * Regla: solo se puede modificar la asistencia del DÍA DE HOY (excepto CEO).
    */
   async bulkRecords(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');
@@ -282,6 +326,17 @@ export const attendanceController = {
       sessionId,
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
+
+    // Regla: si no es CEO, solo puede modificar sesiones de HOY
+    if (req.user!.role !== 'ceo') {
+      const today = getTodayString();
+      const sessionDate = String(session.sessionDate).substring(0, 10);
+      if (sessionDate !== today) {
+        return res.status(403).json({
+          error: 'Solo puedes modificar la asistencia del día de hoy. Para fechas anteriores, contacta al CEO.',
+        });
+      }
+    }
 
     const access = await canManageSection(req, session.sectionId);
     if (!access.allowed) {
@@ -321,6 +376,7 @@ export const attendanceController = {
 
   /**
    * DELETE /api/attendance/sessions/:id/records/:studentId
+   * Regla: solo el CEO puede limpiar registros.
    */
   async removeRecord(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');
@@ -328,16 +384,17 @@ export const attendanceController = {
     const studentId = getStringParam(req, res, 'studentId');
     if (!studentId) return;
 
+    if (req.user!.role !== 'ceo') {
+      return res.status(403).json({
+        error: 'Solo el CEO puede eliminar registros de asistencia',
+      });
+    }
+
     const session = await attendanceSessionsRepository.findById(
       req.tenant!.schemaName,
       sessionId,
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
-
-    const access = await canManageSection(req, session.sectionId);
-    if (!access.allowed) {
-      return res.status(403).json({ error: access.reason });
-    }
 
     const deleted = await attendanceRecordsRepository.delete(
       req.tenant!.schemaName,
