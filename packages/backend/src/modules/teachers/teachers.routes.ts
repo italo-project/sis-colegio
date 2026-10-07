@@ -11,6 +11,7 @@ teachersRouter.use(resolveTenant, requireAuth);
 teachersRouter.get('/', requireRole('ceo', 'docente'), teachersController.list);
 teachersRouter.get('/:id', requireRole('ceo', 'docente'), teachersController.getById);
 teachersRouter.post('/', requireRole('ceo'), teachersController.create);
+teachersRouter.post('/bulk', requireRole('ceo'), teachersController.bulkCreate);
 teachersRouter.patch('/:id', requireRole('ceo'), teachersController.update);
 teachersRouter.delete('/:id', requireRole('ceo'), teachersController.deactivate);
 teachersRouter.post('/:id/reactivate', requireRole('ceo'), teachersController.reactivate);

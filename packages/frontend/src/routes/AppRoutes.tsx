@@ -36,6 +36,7 @@ import { MyProfilePage } from '@/pages/MyProfilePage';
 import { MySectionsPage } from '@/pages/teacher/MySectionsPage';
 import { SectionAttendancePage } from '@/pages/teacher/SectionAttendancePage';
 import { SectionDetailPage } from '@/pages/sections/SectionDetailPage';
+import { ChangeInitialPasswordPage } from '@/pages/ChangeInitialPasswordPage';
 
 export const AppRoutes = () => {
   return (
@@ -45,6 +46,7 @@ export const AppRoutes = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/change-initial-password" element={<ChangeInitialPasswordPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
 
         {/* ─── Rutas del panel super-admin ──────────────────── */}

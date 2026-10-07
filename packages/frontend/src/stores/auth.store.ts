@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { queryClient } from '@/lib/query-client';
 import type { AuthResponse, Role, Tenant, User } from '@/types/auth';
 
-type SuperAdminUser = User & { isSuperAdmin?: boolean };
+type SuperAdminUser = User & { isSuperAdmin?: boolean; mustChangePassword?: boolean };
 
 type ImpersonationInfo = {
   originalAccessToken: string;
@@ -23,6 +23,7 @@ type AuthState = {
   tenant: Tenant | null;
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
+  mustChangePassword: boolean;
   impersonation: ImpersonationInfo | null;
 
   login: (data: AuthResponse & { user: SuperAdminUser }) => void;
@@ -47,10 +48,10 @@ export const useAuthStore = create<AuthState>()(
       tenant: null,
       isAuthenticated: false,
       isSuperAdmin: false,
+      mustChangePassword: false,
       impersonation: null,
 
       login: (data) => {
-        // Limpiar caché de la sesión anterior (por si había)
         queryClient.clear();
 
         localStorage.setItem('access_token', data.accessToken);
@@ -64,12 +65,12 @@ export const useAuthStore = create<AuthState>()(
           tenant: data.tenant,
           isAuthenticated: true,
           isSuperAdmin: data.user?.isSuperAdmin ?? false,
+          mustChangePassword: data.user?.mustChangePassword ?? false,
           impersonation: null,
         });
       },
 
       logout: () => {
-        // Limpiar TODA la caché de React Query antes de cerrar sesión
         queryClient.clear();
 
         localStorage.removeItem('access_token');
@@ -83,18 +84,15 @@ export const useAuthStore = create<AuthState>()(
           tenant: null,
           isAuthenticated: false,
           isSuperAdmin: false,
+          mustChangePassword: false,
           impersonation: null,
         });
       },
 
       startImpersonation: (data) => {
         const current = get();
-        if (current.impersonation) {
-          // Ya estamos impersonando: no hacemos nada
-          return;
-        }
+        if (current.impersonation) return;
 
-        // Limpiar caché antes de cambiar de usuario
         queryClient.clear();
 
         localStorage.setItem('access_token', data.accessToken);
@@ -104,6 +102,7 @@ export const useAuthStore = create<AuthState>()(
           role: data.role,
           tenant: data.tenant,
           isSuperAdmin: false,
+          mustChangePassword: false,
           impersonation: {
             originalAccessToken: current.accessToken ?? '',
             originalRefreshToken: current.refreshToken ?? '',
@@ -120,7 +119,6 @@ export const useAuthStore = create<AuthState>()(
         const { impersonation } = get();
         if (!impersonation) return;
 
-        // Limpiar caché antes de volver al usuario original
         queryClient.clear();
 
         localStorage.setItem('access_token', impersonation.originalAccessToken);
@@ -132,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
           tenant: impersonation.originalTenant,
           role: impersonation.originalRole,
           isSuperAdmin: impersonation.originalUser.isSuperAdmin ?? false,
+          mustChangePassword: impersonation.originalUser.mustChangePassword ?? false,
           impersonation: null,
         });
       },

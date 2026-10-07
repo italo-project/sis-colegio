@@ -23,8 +23,7 @@ type StudentParentDetailedRow = StudentParentRow & {
   student_last_name: string;
   student_dni: string;
   // Padre
-  parent_first_name: string;
-  parent_last_name: string;
+  parent_full_name: string;
   parent_dni: string;
   parent_email: string;
   parent_phone: string | null;
@@ -58,8 +57,7 @@ const toApiDetailed = (row: StudentParentDetailedRow) => ({
   },
   parent: {
     id: row.parent_id,
-    firstName: row.parent_first_name,
-    lastName: row.parent_last_name,
+    fullName: row.parent_full_name,
     dni: row.parent_dni,
     email: row.parent_email,
     phone: row.parent_phone,
@@ -72,8 +70,7 @@ const buildDetailedSelect = (schemaName: string) => `
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     s.dni AS student_dni,
-    p.first_name AS parent_first_name,
-    p.last_name AS parent_last_name,
+    p.full_name AS parent_full_name,
     p.dni AS parent_dni,
     p.email AS parent_email,
     p.phone AS parent_phone
@@ -86,7 +83,6 @@ export const studentParentsRepository = {
   async create(schemaName: string, input: CreateStudentParentInput) {
     assertSafeSchemaName(schemaName);
 
-    // Si isPrimary = true, quitar el flag a las otras relaciones del mismo estudiante
     if (input.isPrimary) {
       await prisma.$executeRawUnsafe(
         `UPDATE "${schemaName}".student_parents SET is_primary = false, updated_at = now()
@@ -156,7 +152,7 @@ export const studentParentsRepository = {
 
     const rows = await prisma.$queryRawUnsafe<StudentParentDetailedRow[]>(
       `${buildDetailedSelect(schemaName)} ${where}
-       ORDER BY sp.is_primary DESC, p.last_name ASC, s.last_name ASC`,
+       ORDER BY sp.is_primary DESC, p.full_name ASC, s.last_name ASC`,
       ...params,
     );
     return rows.map(toApiDetailed);
@@ -176,7 +172,6 @@ export const studentParentsRepository = {
     const current = await this.findById(schemaName, id);
     if (!current) return null;
 
-    // Si isPrimary = true, quitar el flag a las otras relaciones del mismo estudiante
     if (input.isPrimary === true) {
       await prisma.$executeRawUnsafe(
         `UPDATE "${schemaName}".student_parents SET is_primary = false, updated_at = now()

@@ -10,6 +10,7 @@ export type AccessPayload = {
   schemaName: string;
   isSuperAdmin?: boolean;
   email?: string;
+  mustChangePassword?: boolean;
 };
 
 export const signAccessToken = (payload: AccessPayload) =>

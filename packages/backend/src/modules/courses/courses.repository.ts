@@ -24,8 +24,7 @@ type CourseDetailedRow = CourseRow & {
   subject_code: string;
   subject_name: string;
   subject_area: string | null;
-  teacher_first_name: string;
-  teacher_last_name: string;
+  teacher_full_name: string;
   teacher_dni: string;
   teacher_email: string;
 };
@@ -74,18 +73,12 @@ const toApiDetailed = (row: CourseDetailedRow) => ({
   },
   teacher: {
     id: row.teacher_id,
-    firstName: row.teacher_first_name,
-    lastName: row.teacher_last_name,
+    fullName: row.teacher_full_name,
     dni: row.teacher_dni,
     email: row.teacher_email,
   },
 });
 
-/**
- * Genera el SELECT detallado con el esquema correcto inyectado.
- * IMPORTANTE: el nombre del esquema debe estar calificado en cada tabla
- * porque Prisma NO aplica search_path.
- */
 const buildDetailedSelect = (schemaName: string) => `
   SELECT
     c.*,
@@ -98,8 +91,7 @@ const buildDetailedSelect = (schemaName: string) => `
     sub.code AS subject_code,
     sub.name AS subject_name,
     sub.area AS subject_area,
-    t.first_name AS teacher_first_name,
-    t.last_name AS teacher_last_name,
+    t.full_name AS teacher_full_name,
     t.dni AS teacher_dni,
     t.email AS teacher_email
   FROM "${schemaName}".courses c
@@ -274,29 +266,17 @@ export const coursesRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
-  /**
-   * Cuenta cuántos datos relacionados tiene un curso.
-   * Se usa para decidir si se puede eliminar definitivamente.
-   */
-   async countRelatedData(schemaName: string, id: string) {
+  async countRelatedData(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
-
-    const rows = await prisma.$queryRawUnsafe<
-      Array<{
-        enrollments: bigint;
-        grade_categories: bigint;
-      }>
-    >(
+    const rows = await prisma.$queryRawUnsafe<Array<{ enrollments: bigint; grade_categories: bigint }>>(
       `SELECT
          (SELECT COUNT(*) FROM "${schemaName}".enrollments WHERE course_id = $1::uuid) AS enrollments,
          (SELECT COUNT(*) FROM "${schemaName}".grade_categories WHERE course_id = $1::uuid) AS grade_categories
       `,
       id,
     );
-
     const r = rows[0];
     const total = Number(r.enrollments) + Number(r.grade_categories);
-
     return {
       total,
       breakdown: {
@@ -314,5 +294,4 @@ export const coursesRepository = {
     );
     return rows[0] ? toApi(rows[0]) : null;
   },
-
 };

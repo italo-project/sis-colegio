@@ -1,5 +1,7 @@
 import { apiClient } from './client';
 import type {
+  BulkCreateTeachersPayload,
+  BulkCreateTeachersResponse,
   CreateTeacherPayload,
   Teacher,
   TeachersListResponse,
@@ -19,6 +21,11 @@ export const teachersApi = {
 
   async create(payload: CreateTeacherPayload) {
     const { data } = await apiClient.post<Teacher & { credentials?: unknown }>('/teachers', payload);
+    return data;
+  },
+
+  async bulkCreate(payload: BulkCreateTeachersPayload) {
+    const { data } = await apiClient.post<BulkCreateTeachersResponse>('/teachers/bulk', payload);
     return data;
   },
 

@@ -12,6 +12,7 @@ parentsRouter.get('/', requireRole('ceo', 'docente'), parentsController.list);
 parentsRouter.get('/:id', requireRole('ceo', 'docente'), parentsController.getById);
 parentsRouter.get('/:id/students', requireRole('ceo', 'docente'), parentsController.getStudents);
 parentsRouter.post('/', requireRole('ceo'), parentsController.create);
+parentsRouter.post('/bulk', requireRole('ceo'), parentsController.bulkCreate);
 parentsRouter.patch('/:id', requireRole('ceo'), parentsController.update);
 parentsRouter.delete('/:id', requireRole('ceo'), parentsController.deactivate);
 parentsRouter.post('/:id/reactivate', requireRole('ceo'), parentsController.reactivate);

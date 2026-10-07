@@ -7,13 +7,15 @@ type Props = {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 };
 
 const sizeClasses = {
   sm: 'max-w-md',
   md: 'max-w-lg',
   lg: 'max-w-2xl',
+  xl: 'max-w-5xl',
+  '2xl': 'max-w-7xl',
 };
 
 export const Modal = ({ open, onClose, title, children, footer, size = 'md' }: Props) => {

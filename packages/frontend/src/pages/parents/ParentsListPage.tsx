@@ -4,7 +4,8 @@ import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-rea
 import { parentsApi } from '@/api/parents.api';
 import { Button } from '@/components/ui/Button';
 import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
-import { ParentFormModal } from './ParentFormModal.tsx';
+import { BulkCreateParentsModal } from './BulkCreateParentsModal';
+import { ParentFormModal } from './ParentFormModal';
 import { getErrorMessage } from '@/api/client';
 import type { Parent } from '@/types/parent';
 
@@ -12,6 +13,7 @@ export const ParentsListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Parent | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -62,28 +64,19 @@ export const ParentsListPage = () => {
     setIsFormOpen(true);
   };
 
-  const handleCreate = () => {
-    setEditing(null);
-    setIsFormOpen(true);
-  };
-
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditing(null);
   };
 
   const handleDeactivate = (parent: Parent) => {
-    if (
-      confirm(
-        `¿Desactivar a ${parent.firstName} ${parent.lastName}?\n\nNo se eliminará, solo quedará inactivo.`,
-      )
-    ) {
+    if (confirm(`¿Desactivar a ${parent.fullName}?\n\nNo se eliminará, solo quedará inactivo.`)) {
       deactivateMutation.mutate(parent.id);
     }
   };
 
   const handleReactivate = (parent: Parent) => {
-    if (confirm(`¿Reactivar a ${parent.firstName} ${parent.lastName}?`)) {
+    if (confirm(`¿Reactivar a ${parent.fullName}?`)) {
       reactivateMutation.mutate(parent.id);
     }
   };
@@ -98,7 +91,7 @@ export const ParentsListPage = () => {
         if (bd?.students) detalles.push(`${bd.students} hijo(s) vinculado(s)`);
 
         alert(
-          `No se puede eliminar a ${parent.firstName} ${parent.lastName}.\n\n` +
+          `No se puede eliminar a ${parent.fullName}.\n\n` +
             `Tiene datos asociados:\n• ${detalles.join('\n• ')}\n\n` +
             `Solución: desactívalo en lugar de eliminarlo.`,
         );
@@ -107,8 +100,8 @@ export const ParentsListPage = () => {
 
       if (
         confirm(
-          `¿Eliminar DEFINITIVAMENTE a ${parent.firstName} ${parent.lastName}?\n\n` +
-            `Esta acción NO se puede deshacer.`,
+          `¿Eliminar DEFINITIVAMENTE a ${parent.fullName}?\n\n` +
+            `Esta acción NO se puede deshacer. También se eliminará su cuenta de usuario.`,
         )
       ) {
         hardDeleteMutation.mutate(parent.id);
@@ -141,9 +134,21 @@ export const ParentsListPage = () => {
             {data?.total === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={handleCreate} icon={<Plus className="w-4 h-4" />}>
-          Nuevo padre
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setIsFormOpen(true);
+            }}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Crear uno
+          </Button>
+          <Button onClick={() => setIsBulkOpen(true)} icon={<Plus className="w-4 h-4" />}>
+            Crear varios
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -172,7 +177,7 @@ export const ParentsListPage = () => {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
-                  <th className="text-left font-medium px-4 py-3">Nombre</th>
+                  <th className="text-left font-medium px-4 py-3">Nombre completo</th>
                   <th className="text-left font-medium px-4 py-3">DNI</th>
                   <th className="text-left font-medium px-4 py-3">Email</th>
                   <th className="text-left font-medium px-4 py-3">Teléfono</th>
@@ -185,9 +190,7 @@ export const ParentsListPage = () => {
                 {data.items.map((parent) => (
                   <tr key={parent.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {parent.lastName}, {parent.firstName}
-                      </div>
+                      <div className="font-medium text-gray-900">{parent.fullName}</div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{parent.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{parent.email}</td>
@@ -249,6 +252,14 @@ export const ParentsListPage = () => {
           </div>
         )}
       </div>
+
+      <BulkCreateParentsModal
+        open={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['parents'] });
+        }}
+      />
 
       <ParentFormModal
         open={isFormOpen}

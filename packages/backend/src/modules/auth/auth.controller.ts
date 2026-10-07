@@ -9,11 +9,6 @@ import { forgotPasswordSchema, resetPasswordSchema } from './auth.schemas';
 import { passwordResetRepository } from './auth.repository';
 import { sendPasswordResetEmail } from '../../services/email.service';
 
-
-// ═══════════════════════════════════════════════════════════════
-// SCHEMAS
-// ═══════════════════════════════════════════════════════════════
-
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -40,10 +35,6 @@ const superAdminLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
-
-// ═══════════════════════════════════════════════════════════════
-// CONTROLLERS
-// ═══════════════════════════════════════════════════════════════
 
 export const register = async (req: Request, res: Response) => {
   const parsed = registerSchema.safeParse(req.body);
@@ -83,7 +74,6 @@ export const register = async (req: Request, res: Response) => {
     return { user, org, role: 'ceo' };
   });
 
-  // El esquema del tenant se crea fuera de la transacción de Prisma
   if (result.org) {
     await provisionTenantSchema(result.org.schemaName);
   }
@@ -125,11 +115,12 @@ export const login = async (req: Request, res: Response) => {
 
   const accessToken = signAccessToken({
     userId: user.id,
-  organizationId: req.tenant.id,
-  role: membership.role,
-  schemaName: req.tenant.schemaName,
-  isSuperAdmin: user.isSuperAdmin,
-  email: user.email,
+    organizationId: req.tenant.id,
+    role: membership.role,
+    schemaName: req.tenant.schemaName,
+    isSuperAdmin: user.isSuperAdmin,
+    email: user.email,
+    mustChangePassword: user.mustChangePassword,
   });
   const refreshToken = await createRefreshToken(user.id, req.tenant.id);
 
@@ -141,6 +132,7 @@ export const login = async (req: Request, res: Response) => {
       email: user.email,
       fullName: user.fullName,
       isSuperAdmin: user.isSuperAdmin,
+      mustChangePassword: user.mustChangePassword,
     },
     role: membership.role,
     tenant: { id: req.tenant.id, subdomain: req.tenant.subdomain },
@@ -163,11 +155,17 @@ export const refresh = async (req: Request, res: Response) => {
     });
     if (!membership) return res.status(403).json({ error: 'Membresía inactiva' });
 
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
     const accessToken = signAccessToken({
       userId: decoded.userId,
       organizationId: decoded.organizationId,
       role: membership.role,
       schemaName: req.tenant.schemaName,
+      isSuperAdmin: user.isSuperAdmin,
+      email: user.email,
+      mustChangePassword: user.mustChangePassword,
     });
     const refreshToken = await createRefreshToken(decoded.userId, decoded.organizationId);
 
@@ -177,10 +175,6 @@ export const refresh = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * Login del super-administrador (dueño del SaaS).
- * NO requiere subdominio. Se autentica solo con email + password.
- */
 export const superAdminLogin = async (req: Request, res: Response) => {
   const parsed = superAdminLoginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Datos inválidos' });
@@ -195,11 +189,12 @@ export const superAdminLogin = async (req: Request, res: Response) => {
 
   const accessToken = signAccessToken({
     userId: user.id,
-  organizationId: '00000000-0000-0000-0000-000000000000',
-  role: 'admin',
-  schemaName: 'public',
-  isSuperAdmin: true,
-  email: user.email,
+    organizationId: '00000000-0000-0000-0000-000000000000',
+    role: 'admin',
+    schemaName: 'public',
+    isSuperAdmin: true,
+    email: user.email,
+    mustChangePassword: user.mustChangePassword,
   });
   const refreshToken = await createRefreshToken(user.id, '00000000-0000-0000-0000-000000000000');
 
@@ -211,14 +206,14 @@ export const superAdminLogin = async (req: Request, res: Response) => {
       email: user.email,
       fullName: user.fullName,
       isSuperAdmin: true,
+      mustChangePassword: user.mustChangePassword,
     },
     role: 'admin',
     tenant: { id: '', subdomain: 'admin' },
   });
 };
 
-// ═══ Recuperación de contraseña ═══
-
+// ─── Recuperación de contraseña ────────────────────────────────
 export const forgotPassword = async (req: Request, res: Response) => {
   const parsed = forgotPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -227,11 +222,10 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
   const { email } = parsed.data;
 
-  // Buscar usuario
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: { email, isSuperAdmin: false },
+  });
 
-  // IMPORTANTE: siempre responder OK, incluso si el email no existe
-  // (para no revelar qué emails están registrados) [citation:1][citation:11]
   if (!user || !user.isActive) {
     return res.json({
       ok: true,
@@ -241,7 +235,6 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
   try {
     const { token } = await passwordResetRepository.createToken(user.id);
-
     const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${token}`;
 
     await sendPasswordResetEmail({

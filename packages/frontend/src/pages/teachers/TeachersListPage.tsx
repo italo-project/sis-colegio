@@ -4,7 +4,8 @@ import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-rea
 import { teachersApi } from '@/api/teachers.api';
 import { Button } from '@/components/ui/Button';
 import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
-import { TeacherFormModal } from './TeacherFormModal.tsx';
+import { BulkCreateTeachersModal } from './BulkCreateTeachersModal';
+import { TeacherFormModal } from './TeacherFormModal';
 import { getErrorMessage } from '@/api/client';
 import type { Teacher } from '@/types/teacher';
 
@@ -12,6 +13,7 @@ export const TeachersListPage = () => {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editing, setEditing] = useState<Teacher | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -62,28 +64,19 @@ export const TeachersListPage = () => {
     setIsFormOpen(true);
   };
 
-  const handleCreate = () => {
-    setEditing(null);
-    setIsFormOpen(true);
-  };
-
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditing(null);
   };
 
   const handleDeactivate = (teacher: Teacher) => {
-    if (
-      confirm(
-        `¿Desactivar a ${teacher.firstName} ${teacher.lastName}?\n\nNo se eliminará, solo quedará inactivo.`,
-      )
-    ) {
+    if (confirm(`¿Desactivar a ${teacher.fullName}?\n\nNo se eliminará, solo quedará inactivo.`)) {
       deactivateMutation.mutate(teacher.id);
     }
   };
 
   const handleReactivate = (teacher: Teacher) => {
-    if (confirm(`¿Reactivar a ${teacher.firstName} ${teacher.lastName}?`)) {
+    if (confirm(`¿Reactivar a ${teacher.fullName}?`)) {
       reactivateMutation.mutate(teacher.id);
     }
   };
@@ -98,7 +91,7 @@ export const TeachersListPage = () => {
         if (bd?.courses) detalles.push(`${bd.courses} curso(s) asignado(s)`);
 
         alert(
-          `No se puede eliminar a ${teacher.firstName} ${teacher.lastName}.\n\n` +
+          `No se puede eliminar a ${teacher.fullName}.\n\n` +
             `Tiene datos asociados:\n• ${detalles.join('\n• ')}\n\n` +
             `Solución: desactívalo en lugar de eliminarlo.`,
         );
@@ -107,8 +100,8 @@ export const TeachersListPage = () => {
 
       if (
         confirm(
-          `¿Eliminar DEFINITIVAMENTE a ${teacher.firstName} ${teacher.lastName}?\n\n` +
-            `Esta acción NO se puede deshacer.`,
+          `¿Eliminar DEFINITIVAMENTE a ${teacher.fullName}?\n\n` +
+            `Esta acción NO se puede deshacer. También se eliminará su cuenta de usuario.`,
         )
       ) {
         hardDeleteMutation.mutate(teacher.id);
@@ -116,6 +109,18 @@ export const TeachersListPage = () => {
     } catch (err) {
       alert(getErrorMessage(err));
     }
+  };
+
+  const formatPayment = (teacher: Teacher): string => {
+    if (!teacher.paymentType) return '—';
+    if (teacher.paymentType === 'hourly') {
+      return teacher.hourlyRate !== null
+        ? `S/ ${teacher.hourlyRate.toFixed(2)}/h`
+        : 'Por horas';
+    }
+    return teacher.monthlySalary !== null
+      ? `S/ ${teacher.monthlySalary.toFixed(2)}/mes`
+      : 'Sueldo fijo';
   };
 
   return (
@@ -141,9 +146,21 @@ export const TeachersListPage = () => {
             {data?.total === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={handleCreate} icon={<Plus className="w-4 h-4" />}>
-          Nuevo docente
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setEditing(null);
+              setIsFormOpen(true);
+            }}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Crear uno
+          </Button>
+          <Button onClick={() => setIsBulkOpen(true)} icon={<Plus className="w-4 h-4" />}>
+            Crear varios
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -172,10 +189,11 @@ export const TeachersListPage = () => {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
-                  <th className="text-left font-medium px-4 py-3">Nombre</th>
+                  <th className="text-left font-medium px-4 py-3">Nombre completo</th>
                   <th className="text-left font-medium px-4 py-3">DNI</th>
                   <th className="text-left font-medium px-4 py-3">Email</th>
                   <th className="text-left font-medium px-4 py-3">Especialidad</th>
+                  <th className="text-left font-medium px-4 py-3">Pago</th>
                   <th className="text-left font-medium px-4 py-3">Estado</th>
                   <th className="text-right font-medium px-4 py-3">Acciones</th>
                 </tr>
@@ -184,13 +202,12 @@ export const TeachersListPage = () => {
                 {data.items.map((teacher) => (
                   <tr key={teacher.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {teacher.lastName}, {teacher.firstName}
-                      </div>
+                      <div className="font-medium text-gray-900">{teacher.fullName}</div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{teacher.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{teacher.email}</td>
                     <td className="px-4 py-3 text-gray-600">{teacher.specialty ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{formatPayment(teacher)}</td>
                     <td className="px-4 py-3">
                       {teacher.isActive ? (
                         <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
@@ -247,6 +264,14 @@ export const TeachersListPage = () => {
           </div>
         )}
       </div>
+
+      <BulkCreateTeachersModal
+        open={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['teachers'] });
+        }}
+      />
 
       <TeacherFormModal
         open={isFormOpen}

@@ -10,6 +10,7 @@ import { invoicesRepository, paymentsRepository } from '../finance/finance.repos
 import { reportsRepository } from '../finance/finance.repository';
 import { verifyPassword, hashPassword } from '../../utils/password';
 import { prisma } from '../../config/prisma';     
+import { z } from 'zod';
 import {
   updateCeoProfileSchema,
   updatePasswordSchema,
@@ -858,6 +859,36 @@ export const meController = {
       })),
       total: rows.length,
     });
+  },
+    /**
+   * POST /api/me/change-initial-password
+   * Cambia la contraseña de un usuario que tiene mustChangePassword = true.
+   * No requiere la contraseña actual porque viene de una sesión recién creada.
+   */
+  async changeInitialPassword(req: Request, res: Response) {
+    const user = req.user!;
+
+    const parsed = z
+      .object({
+        newPassword: z.string().min(8, 'Mínimo 8 caracteres'),
+      })
+      .safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    const passwordHash = await hashPassword(parsed.data.newPassword);
+
+    await prisma.user.update({
+      where: { id: user.userId },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+      },
+    });
+
+    res.json({ ok: true, message: 'Contraseña actualizada correctamente' });
   },
 
 };

@@ -1,8 +1,7 @@
 export type Parent = {
   id: string;
   userId: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
   email: string;
   phone: string | null;
@@ -12,7 +11,6 @@ export type Parent = {
   createdAt: string;
   updatedAt: string;
 
-  // Solo en getById
   canBeDeleted?: boolean;
   relatedDataCount?: number;
   relatedBreakdown?: {
@@ -27,15 +25,45 @@ export type ParentsListResponse = {
 
 export type CreateParentPayload = {
   email: string;
-  password?: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
   phone?: string;
   occupation?: string;
   address?: string;
 };
 
-export type UpdateParentPayload = Partial<Omit<CreateParentPayload, 'password' | 'email'>> & {
-  email?: string;
+export type UpdateParentPayload = Partial<CreateParentPayload> & {
+  password?: string;
+};
+
+export type BulkCreateParentRow = {
+  dni: string;
+  fullName: string;
+  birthDate?: string;
+  email: string;
+  phone?: string;
+  address?: string;
+};
+
+export type BulkCreateParentsPayload = {
+  parents: BulkCreateParentRow[];
+};
+
+export type BulkCreateParentsResponse = {
+  created: number;
+  failed: number;
+  credentials: Array<{
+    row: number;
+    fullName: string;
+    dni: string;
+    email: string;
+    password: string;
+  }>;
+  errors: Array<{
+    row: number;
+    dni: string;
+    fullName: string;
+    email: string;
+    error?: string;
+  }>;
 };

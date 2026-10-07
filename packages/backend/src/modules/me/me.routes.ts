@@ -12,11 +12,15 @@ meRouter.use(resolveTenant, requireAuth);
 meRouter.get('/courses', meController.myCourses);
 meRouter.get('/profile', meController.myProfile);
 meRouter.get('/full-profile', meController.fullProfile);
+meRouter.get('/sections', meController.mySections);
 
 // Edición de perfil
 meRouter.patch('/phone', meController.updatePhone);
 meRouter.patch('/password', meController.updatePassword);
 meRouter.patch('/profile-ceo', meController.updateCeoProfile);
+
+// Cambio obligatorio de contraseña (primer login)
+meRouter.post('/change-initial-password', meController.changeInitialPassword);
 
 // Foto de perfil
 meRouter.patch('/avatar', avatarUpload.single('avatar'), meController.updateAvatar);
@@ -44,4 +48,3 @@ meRouter.get('/invoices', meController.myInvoices);
 meRouter.get('/invoices/:id', meController.myInvoiceDetail);
 meRouter.get('/payments', meController.myPayments);
 meRouter.get('/children/:id/payments', meController.myChildPayments);
-meRouter.get('/sections', meController.mySections);

@@ -5,8 +5,7 @@ import type { CreateParentInput, ListParentsQuery, UpdateParentInput } from './p
 type ParentRow = {
   id: string;
   user_id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   dni: string;
   email: string;
   phone: string | null;
@@ -20,8 +19,7 @@ type ParentRow = {
 const toApi = (row: ParentRow) => ({
   id: row.id,
   userId: row.user_id,
-  firstName: row.first_name,
-  lastName: row.last_name,
+  fullName: row.full_name,
   dni: row.dni,
   email: row.email,
   phone: row.phone,
@@ -37,12 +35,11 @@ export const parentsRepository = {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<ParentRow[]>(
       `INSERT INTO "${schemaName}".parents
-        (user_id, first_name, last_name, dni, email, phone, occupation, address)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+        (user_id, full_name, dni, email, phone, occupation, address)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       userId,
-      input.firstName,
-      input.lastName,
+      input.fullName,
       input.dni,
       input.email,
       input.phone ?? null,
@@ -79,6 +76,16 @@ export const parentsRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
+  async findByDnis(schemaName: string, dnis: string[]) {
+    assertSafeSchemaName(schemaName);
+    if (dnis.length === 0) return [];
+    const rows = await prisma.$queryRawUnsafe<ParentRow[]>(
+      `SELECT * FROM "${schemaName}".parents WHERE dni = ANY($1::varchar[])`,
+      dnis,
+    );
+    return rows.map(toApi);
+  },
+
   async list(schemaName: string, query: ListParentsQuery) {
     assertSafeSchemaName(schemaName);
     const conditions: string[] = [];
@@ -90,7 +97,7 @@ export const parentsRepository = {
     if (query.q) {
       params.push(`%${query.q.toLowerCase()}%`);
       conditions.push(
-        `(LOWER(first_name) LIKE $${params.length} OR LOWER(last_name) LIKE $${params.length} OR dni LIKE $${params.length} OR LOWER(email) LIKE $${params.length})`,
+        `(LOWER(full_name) LIKE $${params.length} OR dni LIKE $${params.length} OR LOWER(email) LIKE $${params.length})`,
       );
     }
 
@@ -99,7 +106,7 @@ export const parentsRepository = {
 
     const rows = await prisma.$queryRawUnsafe<ParentRow[]>(
       `SELECT * FROM "${schemaName}".parents ${where}
-       ORDER BY last_name ASC, first_name ASC
+       ORDER BY full_name ASC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       ...params,
     );
@@ -119,8 +126,7 @@ export const parentsRepository = {
     assertSafeSchemaName(schemaName);
 
     const map: Record<string, string> = {
-      firstName: 'first_name',
-      lastName: 'last_name',
+      fullName: 'full_name',
       dni: 'dni',
       email: 'email',
       phone: 'phone',
@@ -160,7 +166,8 @@ export const parentsRepository = {
     );
     return rows[0] ? toApi(rows[0]) : null;
   },
-    async reactivate(schemaName: string, id: string) {
+
+  async reactivate(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<ParentRow[]>(
       `UPDATE "${schemaName}".parents
@@ -171,28 +178,18 @@ export const parentsRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
-  /**
-   * Cuenta cuántos datos relacionados tiene un padre.
-   * Se usa para decidir si se puede eliminar definitivamente.
-   */
   async countRelatedData(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
-
-    const rows = await prisma.$queryRawUnsafe<
-      Array<{ students: bigint }>
-    >(
+    const rows = await prisma.$queryRawUnsafe<Array<{ students: bigint }>>(
       `SELECT
          (SELECT COUNT(*) FROM "${schemaName}".student_parents WHERE parent_id = $1::uuid) AS students
       `,
       id,
     );
-
     const r = rows[0];
     return {
       total: Number(r.students),
-      breakdown: {
-        students: Number(r.students),
-      },
+      breakdown: { students: Number(r.students) },
     };
   },
 

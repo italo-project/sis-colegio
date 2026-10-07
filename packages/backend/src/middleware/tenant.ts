@@ -17,7 +17,8 @@ declare global {
         organizationId: string;
         role: string;
         isSuperAdmin?: boolean;
-        email?: string; 
+        email?: string;
+        mustChangePassword?: boolean;
       };
     }
   }
@@ -25,11 +26,10 @@ declare global {
 
 export const resolveTenant = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const host = req.hostname; // ej: "sanmartin.localhost"
+    const host = req.hostname;
     const parts = host.split('.');
     let subdomain = parts.length > 1 ? parts[0] : undefined;
 
-    // Fallback para desarrollo con herramientas como Postman/curl
     if (!subdomain || subdomain === 'localhost' || subdomain === 'www') {
       subdomain = req.header('X-Tenant-Subdomain') || undefined;
     }

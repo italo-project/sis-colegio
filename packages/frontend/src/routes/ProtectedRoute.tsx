@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth.store';
 import type { Role } from '@/types/auth';
 
@@ -9,10 +9,16 @@ type Props = {
 };
 
 export const ProtectedRoute = ({ allowedRoles, children }: Props) => {
-  const { isAuthenticated, role } = useAuthStore();
+  const { isAuthenticated, role, mustChangePassword } = useAuthStore();
+  const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Si el usuario debe cambiar su contraseña, lo redirigimos
+  if (mustChangePassword && location.pathname !== '/change-initial-password') {
+    return <Navigate to="/change-initial-password" replace />;
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
@@ -28,7 +34,5 @@ export const ProtectedRoute = ({ allowedRoles, children }: Props) => {
     );
   }
 
-  // Si tiene children, renderiza los children
-  // Si no, actúa como layout y renderiza el Outlet
   return children ? <>{children}</> : <Outlet />;
 };

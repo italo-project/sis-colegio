@@ -10,17 +10,17 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
     const token = header.slice('Bearer '.length);
     const payload = verifyAccessToken(token);
 
-    // El token debe pertenecer al tenant resuelto por el subdominio
     if (req.tenant && payload.organizationId !== req.tenant.id) {
       return res.status(403).json({ error: 'El token no pertenece a este colegio' });
     }
 
     req.user = {
       userId: payload.userId,
-  organizationId: payload.organizationId,
-  role: payload.role,
-  isSuperAdmin: payload.isSuperAdmin,
-  email: payload.email, 
+      organizationId: payload.organizationId,
+      role: payload.role,
+      isSuperAdmin: payload.isSuperAdmin,
+      email: payload.email,
+      mustChangePassword: payload.mustChangePassword,
     };
     next();
   } catch {

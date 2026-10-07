@@ -1,5 +1,7 @@
 import { apiClient } from './client';
 import type {
+  BulkCreateParentsPayload,
+  BulkCreateParentsResponse,
   CreateParentPayload,
   Parent,
   ParentsListResponse,
@@ -19,6 +21,11 @@ export const parentsApi = {
 
   async create(payload: CreateParentPayload) {
     const { data } = await apiClient.post<Parent & { credentials?: unknown }>('/parents', payload);
+    return data;
+  },
+
+  async bulkCreate(payload: BulkCreateParentsPayload) {
+    const { data } = await apiClient.post<BulkCreateParentsResponse>('/parents/bulk', payload);
     return data;
   },
 
