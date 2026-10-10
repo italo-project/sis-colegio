@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { StudentsListPage } from '@/pages/students/StudentsListPage';
+import { StudentHistoryPage } from '@/pages/students/StudentHistoryPage';
 import { TeachersListPage } from '@/pages/teachers/TeachersListPage';
 import { ParentsListPage } from '@/pages/parents/ParentsListPage';
 import { SubjectsListPage } from '@/pages/subjects/SubjectsListPage';
@@ -37,6 +38,7 @@ import { MySectionsPage } from '@/pages/teacher/MySectionsPage';
 import { SectionAttendancePage } from '@/pages/teacher/SectionAttendancePage';
 import { SectionDetailPage } from '@/pages/sections/SectionDetailPage';
 import { ChangeInitialPasswordPage } from '@/pages/ChangeInitialPasswordPage';
+import { CloseYearPage } from '@/pages/ceo/CloseYearPage';
 
 export const AppRoutes = () => {
   return (
@@ -83,6 +85,16 @@ export const AppRoutes = () => {
               }
             />
 
+            {/* Cierre de año escolar (Fase E) */}
+            <Route
+              path="/close-year"
+              element={
+                <ProtectedRoute allowedRoles={['ceo']}>
+                  <CloseYearPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Secciones y asistencias (CEO + docente) */}
             <Route
               path="/my-sections"
@@ -107,6 +119,14 @@ export const AppRoutes = () => {
               element={
                 <ProtectedRoute allowedRoles={['ceo', 'docente']}>
                   <StudentsListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/students/:id/history"
+              element={
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
+                  <StudentHistoryPage />
                 </ProtectedRoute>
               }
             />
@@ -187,11 +207,11 @@ export const AppRoutes = () => {
               }
             />
 
-            {/* Docente */}
+            {/* Docente / CEO */}
             <Route
               path="/my-courses"
               element={
-                <ProtectedRoute allowedRoles={['docente']}>
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
                   <TeacherMyCoursesPage />
                 </ProtectedRoute>
               }
@@ -199,7 +219,7 @@ export const AppRoutes = () => {
             <Route
               path="/my-courses/:courseId/grades"
               element={
-                <ProtectedRoute allowedRoles={['docente']}>
+                <ProtectedRoute allowedRoles={['ceo', 'docente']}>
                   <CourseGradesPage />
                 </ProtectedRoute>
               }

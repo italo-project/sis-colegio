@@ -26,7 +26,7 @@ export const updateParentSchema = z.object({
 export const listParentsQuerySchema = z.object({
   q: z.string().optional(),
   active: z.enum(['true', 'false']).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
 

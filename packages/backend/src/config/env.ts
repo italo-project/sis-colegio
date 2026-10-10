@@ -28,9 +28,15 @@ const schema = z.object({
   // Cifrado
   ENCRYPTION_KEY: z.string().min(16),
 
-    // Email
+  // Email
   RESEND_API_KEY: z.string().min(10),
   RESEND_FROM_EMAIL: z.string().min(5),
+
+  // WhatsApp (Meta Cloud API) — Fase D
+  WHATSAPP_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  WHATSAPP_SIMULATED: z.coerce.boolean().default(true),
 });
 
 const parsed = schema.safeParse(process.env);

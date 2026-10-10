@@ -34,45 +34,53 @@ export const MyChildrenPage = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {data.items.map((child) => (
-          <div
-            key={child.studentId}
-            className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-          >
-            <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-blue-50 to-white">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {child.firstName[0]}
-                  {child.lastName[0]}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {child.firstName} {child.lastName}
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    DNI {child.dni} · {child.relationship}
-                  </p>
+        {data.items.map((child) => {
+          const initials = child.fullName
+            .split(' ')
+            .slice(0, 2)
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase();
+
+          return (
+            <div
+              key={child.studentId}
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+            >
+              <div className="p-5 border-b border-gray-100 bg-gradient-to-br from-blue-50 to-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                    {initials}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {child.fullName}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      DNI {child.dni} · {child.relationship}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <div className="p-4 space-y-2">
+                <Link
+                  to={`/my-children/${child.studentId}/grades`}
+                  className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+                >
+                  <Award className="w-4 h-4" />
+                  Ver notas
+                </Link>
+                <Link
+                  to={`/my-children/${child.studentId}/attendance`}
+                  className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  Ver asistencia
+                </Link>
+              </div>
             </div>
-            <div className="p-4 space-y-2">
-              <Link
-                to={`/my-children/${child.studentId}/grades`}
-                className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
-              >
-                <Award className="w-4 h-4" />
-                Ver notas
-              </Link>
-              <Link
-                to={`/my-children/${child.studentId}/attendance`}
-                className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
-              >
-                <CalendarCheck className="w-4 h-4" />
-                Ver asistencia
-              </Link>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

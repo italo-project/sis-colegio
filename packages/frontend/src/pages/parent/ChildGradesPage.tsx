@@ -30,7 +30,7 @@ export const ChildGradesPage = () => {
           Mis hijos
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">
-          Notas de {data?.student.firstName} {data?.student.lastName}
+          Notas de {data?.student.fullName}
         </h1>
         <p className="text-sm text-gray-500 mt-1">Notas por curso</p>
       </div>
@@ -45,17 +45,17 @@ export const ChildGradesPage = () => {
       ) : (
         data.courses.map((c) => (
           <Card
-  key={c.course.id}
-  title={formatCourse({
-    subject: c.course.subject,
-    section: { name: c.course.section.name, gradeLevel: c.course.gradeLevel },
-    academicYear: c.course.academicYear,
-  })}
->
+            key={c.course.id}
+            title={formatCourse({
+              subject: c.course.subject,
+              section: { name: c.course.section.name, gradeLevel: c.course.gradeLevel },
+              academicYear: c.course.academicYear,
+            })}
+          >
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-3 text-sm">
                 <span className="text-gray-500">
-                  Docente: {c.course.teacher.firstName} {c.course.teacher.lastName}
+                  Docente: {c.course.teacher ? c.course.teacher.fullName : 'Sin asignar'}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500">Promedio final:</span>

@@ -485,5 +485,74 @@ export const adminController = {
     const result = await adminRepository.listAuditLogs(parsed.data);
     res.json(result);
   },
+
+    /**
+   * POST /api/admin/reset-all-data
+   * ⚠️ PELIGROSO: Borra todos los datos excepto el super-admin actual.
+   */
+  async resetAllData(req: Request, res: Response) {
+    const confirmation = req.body?.confirmation;
+
+    if (confirmation !== 'BORRAR TODO') {
+      return res.status(400).json({
+        error: 'Debes escribir exactamente "BORRAR TODO" para confirmar.',
+      });
+    }
+
+    try {
+      const result = await adminRepository.resetAllData(req.user!.userId);
+
+      await auditLog(req, 'organization.deleted', {
+        targetType: 'platform',
+        targetName: 'RESET TOTAL',
+        metadata: {
+          droppedSchemas: result.droppedSchemas,
+          deletedOrganizations: result.deletedOrganizations,
+        },
+      });
+
+      res.json({
+        ok: true,
+        message: 'Todos los datos fueron borrados.',
+        deletedOrganizations: result.deletedOrganizations,
+        droppedSchemas: result.droppedSchemas,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al borrar datos';
+      console.error('❌ Error en reset-all-data:', msg);
+      return res.status(500).json({ error: msg });
+    }
+  },
+
+    /**
+   * POST /api/admin/seed-demo
+   * Crea un colegio demo con datos de prueba.
+   */
+  async seedDemo(req: Request, res: Response) {
+    try {
+      const result = await adminRepository.seedDemoData();
+
+      if ('error' in result) {
+        return res.status(409).json(result);
+      }
+
+      await auditLog(req, 'organization.created', {
+        targetType: 'organization',
+        targetId: result.organization.id,
+        targetName: result.organization.name,
+        metadata: {
+          seed: true,
+          summary: result.summary,
+        },
+      });
+
+      res.status(201).json(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear datos de prueba';
+      console.error('❌ Error en seed-demo:', msg);
+      return res.status(500).json({ error: msg });
+    }
+  },
   
 };
+

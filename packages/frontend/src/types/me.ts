@@ -1,28 +1,23 @@
 import type { CourseGradeEntry, CourseAverage, AttendanceStatus } from './grades';
 
-// ── Estudiante ───────────────────────────────────────────────
 export type StudentProfile = {
   id: string;
   userId: string | null;
   hasAccount: boolean;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
   birthDate: string | null;
   gender: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
-  guardianName: string | null;
-  guardianPhone: string | null;
   isActive: boolean;
 };
 
 export type MyGradeReport = {
   student: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
   };
   courses: Array<{
@@ -32,7 +27,7 @@ export type MyGradeReport = {
       section: { id: string; name: string };
       gradeLevel: { code: string; name: string; level: string };
       subject: { id: string; code: string; name: string };
-      teacher: { id: string; firstName: string; lastName: string };
+      teacher: { id: string; fullName: string } | null;
     };
     entries: CourseGradeEntry[];
     averages: CourseAverage;
@@ -42,8 +37,7 @@ export type MyGradeReport = {
 export type MyAttendanceReport = {
   student: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
   };
   summary: {
@@ -80,18 +74,20 @@ export type MyCourse = {
   course: {
     id: string;
     academicYear: { id: string; year: number };
-    section: { id: string; name: string; gradeLevel?: { id: string; code: string; name: string; level: string } };
+    section: {
+      id: string;
+      name: string;
+      gradeLevel?: { id: string; code: string; name: string; level: string };
+    };
     gradeLevel?: { code: string; name: string; level: string };
     subject: { id: string; code: string; name: string };
-    teacher: { id: string; firstName: string; lastName: string };
+    teacher: { id: string; fullName: string } | null;
   };
 };
 
-// ── Padre ────────────────────────────────────────────────────
 export type Child = {
   studentId: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
   relationship: string;
   isPrimary: boolean;
@@ -106,7 +102,7 @@ export type MyPayment = {
   status: string;
   paidAt: string | null;
   studentId?: string;
-  student?: { firstName: string; lastName: string } | null;
+  student?: { fullName: string } | null;
 };
 
 export type MyInvoice = {
@@ -116,7 +112,7 @@ export type MyInvoice = {
   period: string | null;
   dueDate: string;
   status: 'pending' | 'paid' | 'overdue' | 'cancelled';
-  student?: { firstName: string; lastName: string; dni: string };
+  student?: { fullName: string; dni: string };
   feeConcept?: { name: string; code: string };
 };
 

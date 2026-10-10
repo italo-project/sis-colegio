@@ -1,4 +1,3 @@
-import { Request, Response } from 'express';
 import { coursesRepository } from '../courses/courses.repository';
 import { enrollmentsRepository } from '../enrollments/enrollments.repository';
 import { studentsRepository } from '../students/students.repository';
@@ -13,7 +12,7 @@ export const getStudentGradesReport = async (
   schemaName: string,
   studentId: string,
 ): Promise<{
-  student: { id: string; firstName: string; lastName: string; dni: string };
+  student: { id: string; fullName: string; dni: string };
   courses: Array<{
     course: {
       id: string;
@@ -21,7 +20,10 @@ export const getStudentGradesReport = async (
       section: { name: string };
       gradeLevel: { code: string; name: string; level: string };
       subject: { code: string; name: string };
-      teacher: { firstName: string; lastName: string };
+      teacher: {
+        id: string;
+        fullName: string;
+      } | null;
     };
     entries: Array<{
       id: string;
@@ -43,7 +45,6 @@ export const getStudentGradesReport = async (
   const student = await studentsRepository.findById(schemaName, studentId);
   if (!student) throw new Error('Estudiante no encontrado');
 
-  // Cursos del estudiante (matrículas activas)
   const enrollments = await enrollmentsRepository.listByStudent(schemaName, studentId);
 
   const courses = [];
@@ -96,8 +97,7 @@ export const getStudentGradesReport = async (
   return {
     student: {
       id: student.id,
-      firstName: student.firstName,
-      lastName: student.lastName,
+      fullName: student.fullName,
       dni: student.dni,
     },
     courses,
@@ -106,7 +106,6 @@ export const getStudentGradesReport = async (
 
 /**
  * Obtiene las notas de un estudiante en un curso específico.
- * Valida que el estudiante esté matriculado en ese curso.
  */
 export const getStudentCourseGrades = async (
   schemaName: string,
@@ -148,8 +147,7 @@ export const getStudentCourseGrades = async (
   return {
     student: {
       id: student.id,
-      firstName: student.firstName,
-      lastName: student.lastName,
+      fullName: student.fullName,
       dni: student.dni,
     },
     course: {

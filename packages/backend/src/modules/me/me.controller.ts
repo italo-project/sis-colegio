@@ -9,14 +9,13 @@ import { attendanceRecordsRepository } from '../attendance/attendance.repository
 import { invoicesRepository, paymentsRepository } from '../finance/finance.repository';
 import { reportsRepository } from '../finance/finance.repository';
 import { verifyPassword, hashPassword } from '../../utils/password';
-import { prisma } from '../../config/prisma';     
+import { prisma } from '../../config/prisma';
 import { z } from 'zod';
 import {
   updateCeoProfileSchema,
   updatePasswordSchema,
   updatePhoneSchema,
 } from './me.schemas';
-
 
 import {
   computeAttendanceSummary,
@@ -115,8 +114,7 @@ export const meController = {
 
     const children = links.map((link) => ({
       studentId: link.student.id,
-      firstName: link.student.firstName,
-      lastName: link.student.lastName,
+      fullName: link.student.fullName,
       dni: link.student.dni,
       relationship: link.relationship,
       isPrimary: link.isPrimary,
@@ -409,10 +407,8 @@ export const meController = {
       history,
     });
   },
-    /**
-   * GET /api/me/invoices
-   * Facturas de todos los hijos del padre autenticado.
-   */
+
+  // ── Facturas y pagos ───────────────────────────────────────
   async myInvoices(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'padre') {
@@ -437,16 +433,11 @@ export const meController = {
       allInvoices.push(...result.items);
     }
 
-    // Ordenar por fecha de vencimiento descendente
     allInvoices.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
     res.json({ items: allInvoices, total: allInvoices.length });
   },
 
-  /**
-   * GET /api/me/invoices/:id
-   * Detalle de una factura, validando que sea de un hijo del padre autenticado.
-   */
   async myInvoiceDetail(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'padre') {
@@ -464,7 +455,6 @@ export const meController = {
     const invoice = await invoicesRepository.findDetailedById(req.tenant!.schemaName, id);
     if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
 
-    // Validar que el estudiante de la factura sea hijo del padre
     const link = await studentParentsRepository.findByStudentAndParent(
       req.tenant!.schemaName,
       invoice.studentId,
@@ -477,10 +467,7 @@ export const meController = {
     const payments = await paymentsRepository.listByInvoice(req.tenant!.schemaName, id);
     res.json({ ...invoice, payments });
   },
-    /**
-   * GET /api/me/payments
-   * Historial de pagos de todos los hijos del padre autenticado.
-   */
+
   async myPayments(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'padre') {
@@ -511,7 +498,7 @@ export const meController = {
           ...p,
           studentId: childId,
           student: student
-            ? { firstName: student.firstName, lastName: student.lastName }
+            ? { fullName: student.fullName }
             : null,
         });
       }
@@ -526,10 +513,6 @@ export const meController = {
     res.json({ items: allPayments, total: allPayments.length });
   },
 
-  /**
-   * GET /api/me/children/:id/payments
-   * Historial de pagos de un hijo específico.
-   */
   async myChildPayments(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'padre') {
@@ -565,15 +548,11 @@ export const meController = {
     });
   },
 
-    /**
-   * GET /api/me/full-profile
-   * Devuelve el perfil completo del usuario autenticado según su rol.
-   */
+  // ── Perfil ─────────────────────────────────────────────────
   async fullProfile(req: Request, res: Response) {
     const user = req.user!;
     const schema = req.tenant!.schemaName;
 
-    // Datos globales del usuario
     const globalUser = await prisma.user.findUnique({
       where: { id: user.userId },
       select: {
@@ -587,11 +566,9 @@ export const meController = {
 
     if (!globalUser) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Datos específicos del rol
     let roleData: unknown = null;
 
     if (user.role === 'ceo') {
-      // El CEO no tiene tabla propia, solo datos en users + organization
       roleData = null;
     } else if (user.role === 'docente') {
       roleData = await teachersRepository.findByUserId(schema, user.userId);
@@ -613,10 +590,6 @@ export const meController = {
     });
   },
 
-  /**
-   * PATCH /api/me/phone
-   * Permite a cualquier usuario actualizar su teléfono.
-   */
   async updatePhone(req: Request, res: Response) {
     const user = req.user!;
     const schema = req.tenant!.schemaName;
@@ -641,7 +614,6 @@ export const meController = {
       if (!parent) return res.status(404).json({ error: 'Padre no encontrado' });
       await parentsRepository.update(schema, parent.id, { phone: phone ?? undefined });
     } else if (user.role === 'ceo') {
-      // El CEO no tiene tabla propia. Por ahora, no se puede actualizar el teléfono del CEO sin una tabla.
       return res.status(400).json({
         error: 'El CEO debe actualizar su teléfono desde el panel de super-admin',
       });
@@ -650,10 +622,6 @@ export const meController = {
     res.json({ ok: true, phone });
   },
 
-  /**
-   * PATCH /api/me/password
-   * Permite al usuario cambiar su propia contraseña.
-   */
   async updatePassword(req: Request, res: Response) {
     const user = req.user!;
 
@@ -679,10 +647,6 @@ export const meController = {
     res.json({ ok: true, message: 'Contraseña actualizada' });
   },
 
-  /**
-   * PATCH /api/me/avatar
-   * Sube una foto de perfil (multipart/form-data con campo "avatar").
-   */
   async updateAvatar(req: Request, res: Response) {
     const user = req.user!;
     const file = req.file;
@@ -691,7 +655,6 @@ export const meController = {
       return res.status(400).json({ error: 'No se recibió ninguna imagen' });
     }
 
-    // URL pública del archivo
     const avatarUrl = `/uploads/avatars/${file.filename}`;
 
     await prisma.user.update({
@@ -702,10 +665,6 @@ export const meController = {
     res.json({ ok: true, avatarUrl });
   },
 
-  /**
-   * DELETE /api/me/avatar
-   * Elimina la foto de perfil actual.
-   */
   async deleteAvatar(req: Request, res: Response) {
     const user = req.user!;
 
@@ -717,10 +676,6 @@ export const meController = {
     res.json({ ok: true });
   },
 
-  /**
-   * PATCH /api/me/profile-ceo
-   * Permite al CEO editar sus propios datos (nombre, email).
-   */
   async updateCeoProfile(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'ceo') {
@@ -750,12 +705,6 @@ export const meController = {
     res.json({ ok: true });
   },
 
-    /**
-   * GET /api/me/sections
-   * Devuelve las secciones donde el docente imparte al menos un curso.
-   * Marca si es tutor de cada sección.
-   * El CEO ve TODAS las secciones del colegio.
-   */
   async mySections(req: Request, res: Response) {
     const user = req.user!;
     const schema = req.tenant!.schemaName;
@@ -763,7 +712,6 @@ export const meController = {
     let rows;
 
     if (user.role === 'ceo') {
-      // CEO: todas las secciones activas
       rows = await prisma.$queryRawUnsafe<
         Array<{
           section_id: string;
@@ -799,8 +747,6 @@ export const meController = {
          ORDER BY ay.year DESC, gl.order_index ASC, s.name ASC`,
       );
     } else if (user.role === 'docente') {
-      // ...
-      // Docente: secciones donde imparte al menos un curso
       rows = await prisma.$queryRawUnsafe<
         Array<{
           section_id: string;
@@ -860,11 +806,7 @@ export const meController = {
       total: rows.length,
     });
   },
-    /**
-   * POST /api/me/change-initial-password
-   * Cambia la contraseña de un usuario que tiene mustChangePassword = true.
-   * No requiere la contraseña actual porque viene de una sesión recién creada.
-   */
+
   async changeInitialPassword(req: Request, res: Response) {
     const user = req.user!;
 
@@ -890,5 +832,4 @@ export const meController = {
 
     res.json({ ok: true, message: 'Contraseña actualizada correctamente' });
   },
-
 };

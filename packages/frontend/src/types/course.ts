@@ -3,13 +3,12 @@ export type Course = {
   academicYearId: string;
   sectionId: string;
   subjectId: string;
-  teacherId: string;
+  teacherId: string | null;
   weeklyHours: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 
-  // Datos expandidos (siempre vienen)
   academicYear: {
     id: string;
     year: number;
@@ -32,13 +31,11 @@ export type Course = {
   };
   teacher: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni?: string;
     email?: string;
-  };
+  } | null;
 
-  // Solo en getById
   canBeDeleted?: boolean;
   relatedDataCount?: number;
   relatedBreakdown?: {
@@ -56,12 +53,32 @@ export type CreateCoursePayload = {
   academicYearId: string;
   sectionId: string;
   subjectId: string;
-  teacherId: string;
+  teacherId: string | null;
   weeklyHours?: number;
 };
 
 export type UpdateCoursePayload = {
-  teacherId?: string;
+  teacherId?: string | null;
   weeklyHours?: number;
   isActive?: boolean;
+};
+
+export type AutoGenerateCourseItem = {
+  subjectId: string;
+  teacherId: string | null;
+  weeklyHours?: number | null;
+};
+
+export type AutoGenerateCoursesPayload = {
+  sectionId: string;
+  courses: AutoGenerateCourseItem[];
+};
+
+export type AutoGenerateCoursesResponse = {
+  created: number;
+  skipped: number;
+  failed: number;
+  created_courses: Array<{ id: string; subjectId: string }>;
+  skipped_courses: Array<{ subjectId: string; reason: string }>;
+  errors: Array<{ subjectId: string; error: string }>;
 };

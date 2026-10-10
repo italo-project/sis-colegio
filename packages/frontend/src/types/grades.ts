@@ -1,4 +1,3 @@
-// ── Categorías ───────────────────────────────────────────────
 export type GradeCategory = {
   id: string;
   courseId: string;
@@ -18,7 +17,6 @@ export type CreateGradeCategoryPayload = {
   orderIndex?: number;
 };
 
-// ── Evaluaciones ─────────────────────────────────────────────
 export type Evaluation = {
   id: string;
   categoryId: string;
@@ -31,7 +29,6 @@ export type Evaluation = {
   createdAt: string;
   updatedAt: string;
 
-  // Cuando viene desde listByCourse
   categoryName?: string;
   categoryWeight?: number;
   categoryOrder?: number;
@@ -45,7 +42,6 @@ export type CreateEvaluationPayload = {
   maxScore?: number;
 };
 
-// ── Notas ────────────────────────────────────────────────────
 export type GradeEntry = {
   id: string;
   evaluationId: string;
@@ -85,8 +81,7 @@ export type CourseAverage = {
 export type StudentGradesReport = {
   student: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
   };
   entries: CourseGradeEntry[];
@@ -104,8 +99,7 @@ export type EvaluationSheet = {
   rows: Array<{
     student: {
       id: string;
-      firstName: string;
-      lastName: string;
+      fullName: string;
       dni: string;
       email: string | null;
     };
@@ -114,7 +108,6 @@ export type EvaluationSheet = {
   total: number;
 };
 
-// ── Asistencia ───────────────────────────────────────────────
 export type AttendanceStatus = 'present' | 'late' | 'absent';
 
 export type AttendanceSession = {
@@ -124,6 +117,7 @@ export type AttendanceSession = {
   topic: string | null;
   notes: string | null;
   takenBy: string;
+  isFinal: boolean;
   createdAt: string;
   updatedAt: string;
 
@@ -148,8 +142,7 @@ export type AttendanceRecord = {
 
   student?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
   };
 };
@@ -159,8 +152,7 @@ export type AttendanceSheet = {
   rows: Array<{
     student: {
       id: string;
-      firstName: string;
-      lastName: string;
+      fullName: string;
       dni: string;
     };
     record: AttendanceRecord | null;
@@ -179,4 +171,73 @@ export type CreateAttendanceSessionPayload = {
   sessionDate: string;
   topic?: string;
   notes?: string;
+};
+
+export type SendWhatsAppResult = {
+  totalStudents: number;
+  totalSent: number;
+  totalSkipped: number;
+  totalFailed: number;
+  details: Array<{
+    studentId: string;
+    studentName: string;
+    sent: number;
+    skipped: number;
+    failed: number;
+    errors: string[];
+  }>;
+};
+
+export type BulkRecordsResponse = {
+  sessionId: string;
+  saved: number;
+  failed: number;
+  results: Array<{ studentId: string; ok: boolean; error?: string }>;
+  sessionClosed: boolean;
+  notification: SendWhatsAppResult | { error: string } | null;
+};
+
+// ... (todo lo que ya tenías)
+
+export type StudentFullReport = {
+  student: {
+    id: string;
+    fullName: string;
+    dni: string;
+  };
+  courses: Array<{
+    course: {
+      id: string;
+      academicYear: { id: string; year: number };
+      section: { id: string; name: string };
+      gradeLevel: { code: string; name: string; level: string };
+      subject: { id: string; code: string; name: string };
+      teacher: { id: string; fullName: string } | null;
+    };
+    entries: Array<{
+      id: string;
+      score: number | null;
+      feedback: string | null;
+      gradedAt: string | null;
+      categoryId: string;
+      categoryName: string;
+      categoryWeight: number;
+      evaluationId: string;
+      evaluationName: string;
+      evaluationWeight: number;
+      evaluationDate: string | null;
+      evaluationMaxScore: number;
+    }>;
+    averages: {
+      categories: Array<{
+        categoryId: string;
+        categoryName: string;
+        categoryWeight: number;
+        average: number | null;
+        totalWeightUsed: number;
+        totalWeightPossible: number;
+      }>;
+      finalAverage: number | null;
+    };
+  }>;
 };

@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import { academicYearsRepository } from './academic-years.repository';
 import { gradeLevelsRepository } from './grade-levels.repository';
 import { sectionsRepository } from './sections.repository';
-import { assignTutorSchema } from './academic.schemas';
 import { prisma } from '../../config/prisma';
 import {
+  assignTutorSchema,
+  bulkCreateSectionsSchema,
   createAcademicYearSchema,
   createSectionSchema,
   listSectionsQuerySchema,
@@ -71,6 +72,28 @@ export const academicController = {
     }
     const section = await sectionsRepository.create(req.tenant!.schemaName, parsed.data);
     res.status(201).json(section);
+  },
+
+    /**
+   * POST /api/academic/sections/bulk
+   * Crea varias secciones de golpe para un mismo año + grado.
+   */
+  async bulkCreateSections(req: Request, res: Response) {
+    const parsed = bulkCreateSectionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
+    }
+
+    const result = await sectionsRepository.bulkCreate(
+      req.tenant!.schemaName,
+      parsed.data,
+    );
+
+    if ('error' in result) {
+      return res.status(409).json(result);
+    }
+
+    return res.status(201).json(result);
   },
 
   async updateSection(req: Request, res: Response) {

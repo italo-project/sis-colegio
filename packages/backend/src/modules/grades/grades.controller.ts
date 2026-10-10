@@ -13,9 +13,11 @@ import {
   updateEvaluationSchema,
   updateGradeCategorySchema,
 } from './grades.schemas';
+import { getStudentGradesReport } from './grades-query.controller';
+import { studentsRepository } from '../students/students.repository';
 
 export const gradesController = {
-  // ── Categorías ─────────────────────────────────────────────
+  // ── Categorías ─────────────────────────────────────────
 
   /**
    * POST /api/courses/:courseId/grade-categories
@@ -114,7 +116,7 @@ export const gradesController = {
     res.json(category);
   },
 
-  // ── Evaluaciones ───────────────────────────────────────────
+  // ── Evaluaciones ───────────────────────────────────────
 
   /**
    * POST /api/grade-categories/:categoryId/evaluations
@@ -229,5 +231,31 @@ export const gradesController = {
     const evaluation = await evaluationsRepository.deactivate(req.tenant!.schemaName, id);
     if (!evaluation) return res.status(404).json({ error: 'Evaluación no encontrada' });
     res.json(evaluation);
+  },
+
+  // ── Reporte completo de notas de un estudiante (para CEO) ─
+
+  /**
+   * GET /api/grades/students/:studentId/report
+   * Devuelve el boletín completo del estudiante: todos sus cursos,
+   * evaluaciones, notas por categoría y promedios finales.
+   *
+   * Permisos: cualquier usuario autenticado del colegio puede verlo,
+   * pero está pensado para el CEO.
+   */
+  async getStudentReport(req: Request, res: Response) {
+    const studentId = getStringParam(req, res, 'studentId');
+    if (!studentId) return;
+
+    const student = await studentsRepository.findById(req.tenant!.schemaName, studentId);
+    if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
+
+    try {
+      const report = await getStudentGradesReport(req.tenant!.schemaName, studentId);
+      res.json(report);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al obtener notas';
+      return res.status(500).json({ error: msg });
+    }
   },
 };

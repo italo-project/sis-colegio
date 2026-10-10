@@ -10,7 +10,7 @@ import type {
   UpsertFeeAmountInput,
 } from './finance.schemas';
 
-// ── Conceptos ───────────────────────────────────────────────
+// ── Conceptos ──────────────────────────────────────────────
 type FeeConceptRow = {
   id: string;
   name: string;
@@ -49,13 +49,13 @@ export const feeConceptsRepository = {
   },
 
   async findById(schemaName: string, id: string) {
-  assertSafeSchemaName(schemaName);
-  const rows = await prisma.$queryRawUnsafe<FeeConceptRow[]>(        // ✅ FeeConceptRow
-    `SELECT * FROM "${schemaName}".fee_concepts WHERE id = $1::uuid LIMIT 1`,  // ✅ fee_concepts
-    id,
-  );
-  return rows[0] ? toFeeConceptApi(rows[0]) : null;                  // ✅ toFeeConceptApi
-},
+    assertSafeSchemaName(schemaName);
+    const rows = await prisma.$queryRawUnsafe<FeeConceptRow[]>(
+      `SELECT * FROM "${schemaName}".fee_concepts WHERE id = $1::uuid LIMIT 1`,
+      id,
+    );
+    return rows[0] ? toFeeConceptApi(rows[0]) : null;
+  },
 
   async findByCode(schemaName: string, code: string) {
     assertSafeSchemaName(schemaName);
@@ -267,8 +267,7 @@ export const invoicesRepository = {
     const rows = await prisma.$queryRawUnsafe<
       Array<
         InvoiceRow & {
-          student_first_name: string;
-          student_last_name: string;
+          student_full_name: string;
           student_dni: string;
           concept_name: string;
           concept_code: string;
@@ -277,8 +276,7 @@ export const invoicesRepository = {
     >(
       `SELECT
          i.*,
-         s.first_name AS student_first_name,
-         s.last_name AS student_last_name,
+         s.full_name AS student_full_name,
          s.dni AS student_dni,
          fc.name AS concept_name,
          fc.code AS concept_code
@@ -294,8 +292,7 @@ export const invoicesRepository = {
       ...toInvoiceApi(r),
       student: {
         id: r.student_id,
-        firstName: r.student_first_name,
-        lastName: r.student_last_name,
+        fullName: r.student_full_name,
         dni: r.student_dni,
       },
       feeConcept: {
@@ -357,8 +354,7 @@ export const invoicesRepository = {
     const rows = await prisma.$queryRawUnsafe<
       Array<
         InvoiceRow & {
-          student_first_name: string;
-          student_last_name: string;
+          student_full_name: string;
           student_dni: string;
           concept_name: string;
           concept_code: string;
@@ -367,8 +363,7 @@ export const invoicesRepository = {
     >(
       `SELECT
          i.*,
-         s.first_name AS student_first_name,
-         s.last_name AS student_last_name,
+         s.full_name AS student_full_name,
          s.dni AS student_dni,
          fc.name AS concept_name,
          fc.code AS concept_code
@@ -376,7 +371,7 @@ export const invoicesRepository = {
        JOIN "${schemaName}".students s ON s.id = i.student_id
        JOIN "${schemaName}".fee_concepts fc ON fc.id = i.fee_concept_id
        ${where}
-       ORDER BY i.due_date DESC, s.last_name ASC
+       ORDER BY i.due_date DESC, s.full_name ASC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       ...params,
     );
@@ -391,8 +386,7 @@ export const invoicesRepository = {
         ...toInvoiceApi(r),
         student: {
           id: r.student_id,
-          firstName: r.student_first_name,
-          lastName: r.student_last_name,
+          fullName: r.student_full_name,
           dni: r.student_dni,
         },
         feeConcept: {
@@ -451,8 +445,6 @@ export const invoicesRepository = {
     );
     return rows[0] ? toInvoiceApi(rows[0]) : null;
   },
-
-
 };
 
 // ── Pagos ───────────────────────────────────────────────────
@@ -518,11 +510,7 @@ export const paymentsRepository = {
     );
     return rows.map(toPaymentApi);
   },
-    /**
-   * Crea un pago en estado 'pending' que se usará mientras el padre completa
-   * el checkout de Mercado Pago. Se actualizará a 'approved' cuando llegue
-   * el webhook o cuando se consulte el estado.
-   */
+
   async createPending(
     schemaName: string,
     invoiceId: string,
@@ -582,9 +570,6 @@ export const paymentsRepository = {
 
 // ── Reportes ────────────────────────────────────────────────
 export const reportsRepository = {
-  /**
-   * Resumen ampliado: totales por estado + % de cobranza.
-   */
   async summaryExtended(schemaName: string) {
     assertSafeSchemaName(schemaName);
 
@@ -622,10 +607,6 @@ export const reportsRepository = {
     };
   },
 
-  /**
-   * Ingresos agrupados por mes (YYYY-MM).
-   * Solo cuenta facturas `paid`, agrupadas por fecha de pago.
-   */
   async byPeriod(schemaName: string, from?: string, to?: string) {
     assertSafeSchemaName(schemaName);
     const params: unknown[] = [];
@@ -664,9 +645,6 @@ export const reportsRepository = {
     }));
   },
 
-  /**
-   * Ingresos agrupados por concepto de cobro.
-   */
   async byConcept(schemaName: string, from?: string, to?: string) {
     assertSafeSchemaName(schemaName);
     const params: unknown[] = [];
@@ -708,7 +686,6 @@ export const reportsRepository = {
       ...params,
     );
 
-    // Agrupar por concepto
     const byConcept = new Map<
       string,
       {
@@ -755,9 +732,6 @@ export const reportsRepository = {
     }));
   },
 
-  /**
-   * Ingresos agrupados por grado.
-   */
   async byGrade(schemaName: string, from?: string, to?: string) {
     assertSafeSchemaName(schemaName);
     const params: unknown[] = [];
@@ -793,10 +767,7 @@ export const reportsRepository = {
          COALESCE(SUM(i.amount), 0)::text AS total
        FROM "${schemaName}".invoices i
        JOIN "${schemaName}".students s ON s.id = i.student_id
-       LEFT JOIN "${schemaName}".enrollments e
-         ON e.student_id = s.id AND e.status = 'active'
-       LEFT JOIN "${schemaName}".courses c ON c.id = e.course_id
-       LEFT JOIN "${schemaName}".sections sec ON sec.id = c.section_id
+       LEFT JOIN "${schemaName}".sections sec ON sec.id = s.section_id
        LEFT JOIN "${schemaName}".grade_levels gl ON gl.id = sec.grade_level_id
        ${where}
        GROUP BY gl.id, gl.code, gl.name, i.status
@@ -851,19 +822,14 @@ export const reportsRepository = {
     }));
   },
 
-  /**
-   * Facturas vencidas (due_date < hoy y status = pending).
-   * Calcula los días de mora.
-   */
-    async overdue(schemaName: string) {
+  async overdue(schemaName: string) {
     assertSafeSchemaName(schemaName);
 
     const rows = await prisma.$queryRawUnsafe<
       Array<{
         id: string;
         student_id: string;
-        student_first_name: string;
-        student_last_name: string;
+        student_full_name: string;
         student_dni: string;
         concept_name: string;
         concept_code: string;
@@ -875,8 +841,7 @@ export const reportsRepository = {
       `SELECT
          i.id,
          i.student_id,
-         s.first_name AS student_first_name,
-         s.last_name AS student_last_name,
+         s.full_name AS student_full_name,
          s.dni AS student_dni,
          fc.name AS concept_name,
          fc.code AS concept_code,
@@ -894,8 +859,7 @@ export const reportsRepository = {
       id: r.id,
       studentId: r.student_id,
       student: {
-        firstName: r.student_first_name,
-        lastName: r.student_last_name,
+        fullName: r.student_full_name,
         dni: r.student_dni,
       },
       feeConcept: {
@@ -908,9 +872,6 @@ export const reportsRepository = {
     }));
   },
 
-  /**
-   * Estado de cuenta completo de un estudiante.
-   */
   async studentStatement(schemaName: string, studentId: string) {
     assertSafeSchemaName(schemaName);
 
@@ -994,9 +955,6 @@ export const reportsRepository = {
     };
   },
 
-  /**
-   * Facturas para exportar a CSV, con filtros opcionales.
-   */
   async listForExport(
     schemaName: string,
     filters: {
@@ -1038,8 +996,7 @@ export const reportsRepository = {
       Array<{
         invoice_id: string;
         student_dni: string;
-        student_last_name: string;
-        student_first_name: string;
+        student_full_name: string;
         concept_code: string;
         concept_name: string;
         period: string | null;
@@ -1053,8 +1010,7 @@ export const reportsRepository = {
       `SELECT
          i.id AS invoice_id,
          s.dni AS student_dni,
-         s.last_name AS student_last_name,
-         s.first_name AS student_first_name,
+         s.full_name AS student_full_name,
          fc.code AS concept_code,
          fc.name AS concept_name,
          i.period,
@@ -1066,22 +1022,18 @@ export const reportsRepository = {
        FROM "${schemaName}".invoices i
        JOIN "${schemaName}".students s ON s.id = i.student_id
        JOIN "${schemaName}".fee_concepts fc ON fc.id = i.fee_concept_id
-       LEFT JOIN "${schemaName}".enrollments e
-         ON e.student_id = s.id AND e.status = 'active'
-       LEFT JOIN "${schemaName}".courses c ON c.id = e.course_id
-       LEFT JOIN "${schemaName}".sections sec ON sec.id = c.section_id
+       LEFT JOIN "${schemaName}".sections sec ON sec.id = s.section_id
        LEFT JOIN "${schemaName}".payments p
          ON p.invoice_id = i.id AND p.status = 'approved'
        ${where}
-       ORDER BY i.due_date DESC, s.last_name ASC`,
+       ORDER BY i.due_date DESC, s.full_name ASC`,
       ...params,
     );
 
     return rows.map((r) => ({
       invoiceId: r.invoice_id,
       studentDni: r.student_dni,
-      studentLastName: r.student_last_name,
-      studentFirstName: r.student_first_name,
+      studentFullName: r.student_full_name,
       conceptCode: r.concept_code,
       conceptName: r.concept_name,
       period: r.period,

@@ -20,7 +20,7 @@ import { attendanceRouter } from './modules/attendance/attendance.routes';
 import { financeRouter } from './modules/finance/finance.routes';
 import { mpRouter } from './modules/mercadopago/mp.routes';
 import { adminRouter } from './modules/admin/admin.routes';
-
+import { whatsappRouter } from './modules/whatsapp/whatsapp.routes';
 
 export const app = express();
 
@@ -56,6 +56,7 @@ app.use('/api/grades', gradesRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/mercadopago', mpRouter);
+app.use('/api/whatsapp', whatsappRouter);
 
 // ⚠️ ORDEN IMPORTANTE: /api/admin/migrations va ANTES que /api/admin
 app.use('/api/admin/migrations', adminMigrationsRouter);

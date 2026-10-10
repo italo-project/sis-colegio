@@ -169,9 +169,7 @@ export const FinanceDashboardPage = () => {
               <tbody className="divide-y divide-gray-100">
                 {overdue.items.slice(0, 10).map((inv) => (
                   <tr key={inv.id}>
-                    <td className="px-4 py-2">
-                      {inv.student.lastName}, {inv.student.firstName}
-                    </td>
+                    <td className="px-4 py-2">{inv.student.fullName}</td>
                     <td className="px-4 py-2 text-gray-600">{inv.feeConcept.name}</td>
                     <td className="px-4 py-2 text-gray-600">
                       {new Date(inv.dueDate).toLocaleDateString('es-PE')}

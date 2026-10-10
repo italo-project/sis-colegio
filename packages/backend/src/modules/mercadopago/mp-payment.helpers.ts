@@ -4,7 +4,7 @@ type InvoiceForPayment = {
   id: string;
   amount: number;
   feeConcept: { name: string; code: string };
-  student: { firstName: string; lastName: string; dni: string };
+  student: { fullName: string; dni: string };
 };
 
 type BuildPreferenceParams = {
@@ -31,7 +31,7 @@ export const buildPreferencePayload = ({
   // URLs de retorno: el padre vuelve a estas páginas tras el pago
   const baseUrl = env.FRONTEND_URL.replace(/\/+$/, '');
 
-  const description = `${invoice.feeConcept.name} — ${invoice.student.firstName} ${invoice.student.lastName}`;
+  const description = `${invoice.feeConcept.name} — ${invoice.student.fullName}`;
 
   return {
     items: [

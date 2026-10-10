@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ── Sesiones ────────────────────────────────────────────────
+// ── Sesiones ──────────────────────────────────────────────────
 export const createAttendanceSessionSchema = z.object({
   sectionId: z.string().uuid(),
   sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD'),
@@ -23,7 +23,7 @@ export const listAttendanceSessionsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-// ── Registros ───────────────────────────────────────────────
+// ── Registros ─────────────────────────────────────────────────
 export const attendanceStatusEnum = z.enum(['present', 'late', 'absent']);
 
 export const upsertAttendanceRecordSchema = z.object({
@@ -42,6 +42,10 @@ export const bulkAttendanceRecordsSchema = z.object({
     )
     .min(1)
     .max(200),
+  // NUEVO: modo de guardado
+  // - 'draft'  → guarda pero no cierra la sesión
+  // - 'final'  → guarda y cierra la sesión (dispara WhatsApp)
+  saveMode: z.enum(['draft', 'final']).default('draft'),
 });
 
 export type CreateAttendanceSessionInput = z.infer<typeof createAttendanceSessionSchema>;

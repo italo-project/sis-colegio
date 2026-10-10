@@ -66,8 +66,7 @@ export const getStudentAttendanceReport = async (
   return {
     student: {
       id: student.id,
-      firstName: student.firstName,
-      lastName: student.lastName,
+      fullName: student.fullName,
       dni: student.dni,
     },
     summary,
@@ -94,8 +93,7 @@ export const attendanceQueryController = {
     res.json(report);
   },
 
-  
-    async myAttendanceBySection(req: Request, res: Response) {
+  async myAttendanceBySection(req: Request, res: Response) {
     const user = req.user!;
     if (user.role !== 'estudiante') {
       return res.status(403).json({ error: 'Solo disponible para estudiantes' });
@@ -119,8 +117,7 @@ export const attendanceQueryController = {
     res.json({
       student: {
         id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
+        fullName: student.fullName,
         dni: student.dni,
       },
       sectionId,

@@ -25,7 +25,7 @@ type Section = {
   gradeLevel?: { id: string; code: string; name: string };
 };
 type Subject = { id: string; code: string; name: string };
-type Teacher = { id: string; firstName: string; lastName: string };
+type Teacher = { id: string; fullName: string; dni?: string };
 
 export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => {
   const isEdit = !!course;
@@ -71,7 +71,7 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
     queryKey: ['teachers-for-select'],
     queryFn: async () => {
       const { data } = await apiClient.get<{ items: Teacher[] }>('/teachers', {
-        params: { active: 'true', limit: 100 },
+        params: { active: 'true', limit: 1000 },
       });
       return data.items;
     },
@@ -85,7 +85,7 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
           academicYearId: course.academicYearId,
           sectionId: course.sectionId,
           subjectId: course.subjectId,
-          teacherId: course.teacherId,
+          teacherId: course.teacherId ?? '',
           weeklyHours: course.weeklyHours ?? undefined,
         });
       } else {
@@ -98,7 +98,7 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
     mutationFn: async (data: CreateCoursePayload) => {
       if (isEdit && course) {
         return coursesApi.update(course.id, {
-          teacherId: data.teacherId,
+          teacherId: data.teacherId || null,
           weeklyHours: data.weeklyHours,
         });
       }
@@ -136,7 +136,9 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
         {!isEdit ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Año escolar *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Año escolar *
+              </label>
               <select
                 {...register('academicYearId', { required: 'Requerido' })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
@@ -205,21 +207,21 @@ export const CourseFormModal = ({ open, onClose, course, onSuccess }: Props) => 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Docente *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Docente</label>
             <select
-              {...register('teacherId', { required: 'Requerido' })}
+              {...register('teacherId')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
             >
-              <option value="">Selecciona...</option>
+              <option value="">Sin asignar</option>
               {teachersData?.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.lastName}, {t.firstName}
+                  {t.fullName}
                 </option>
               ))}
             </select>
-            {errors.teacherId && (
-              <p className="text-xs text-red-600 mt-1">{errors.teacherId.message}</p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Puedes dejarlo vacío y asignarlo después
+            </p>
           </div>
 
           <Input

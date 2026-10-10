@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import { getStringParam } from '../../utils/params';
 import { studentsRepository } from '../students/students.repository';
-import { enrollmentsRepository } from '../enrollments/enrollments.repository';
 import { prisma } from '../../config/prisma';
 import {
   attendanceRecordsRepository,
   attendanceSessionsRepository,
 } from './attendance.repository';
 import { canManageSection } from './attendance.helpers';
+import { notifyAbsencesForSession } from '../whatsapp/whatsapp.service';
 import {
   bulkAttendanceRecordsSchema,
   createAttendanceSessionSchema,
@@ -21,7 +21,6 @@ import {
  */
 const getTodayString = (): string => {
   const now = new Date();
-  // Convertir a zona horaria de Perú (UTC-5)
   const peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
   const year = peruTime.getFullYear();
   const month = String(peruTime.getMonth() + 1).padStart(2, '0');
@@ -30,41 +29,38 @@ const getTodayString = (): string => {
 };
 
 /**
- * Devuelve los estudiantes matriculados en cualquier curso de la sección dada
- * (matrícula activa). Un estudiante aparece una sola vez aunque esté en varios
- * cursos de la misma sección.
+ * Devuelve los estudiantes activos asignados a una sección.
+ * Fuente de verdad: students.section_id.
+ * (Antes se usaba enrollments, pero ahora la sección se guarda
+ * directamente en el estudiante.)
  */
 const getStudentsOfSection = async (schemaName: string, sectionId: string) => {
   const rows = await prisma.$queryRawUnsafe<
     Array<{
       student_id: string;
-      first_name: string;
-      last_name: string;
+      full_name: string;
       dni: string;
     }>
   >(
-    `SELECT DISTINCT
+    `SELECT
        s.id AS student_id,
-       s.first_name,
-       s.last_name,
+       s.full_name,
        s.dni
      FROM "${schemaName}".students s
-     JOIN "${schemaName}".enrollments e ON e.student_id = s.id AND e.status = 'active'
-     JOIN "${schemaName}".courses c ON c.id = e.course_id
-     WHERE c.section_id = $1::uuid AND s.is_active = true
-     ORDER BY s.last_name ASC, s.first_name ASC`,
+     WHERE s.section_id = $1::uuid
+       AND s.is_active = true
+     ORDER BY s.full_name ASC`,
     sectionId,
   );
   return rows.map((r) => ({
     id: r.student_id,
-    firstName: r.first_name,
-    lastName: r.last_name,
+    fullName: r.full_name,
     dni: r.dni,
   }));
 };
 
 export const attendanceController = {
-  // ── Sesiones ───────────────────────────────────────────────
+  // ── Sesiones ────────────────────────────────────────────────
 
   /**
    * POST /api/attendance/sessions
@@ -76,7 +72,6 @@ export const attendanceController = {
       return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
     }
 
-    // Validar que la fecha sea HOY
     const today = getTodayString();
     if (parsed.data.sessionDate !== today) {
       return res.status(400).json({
@@ -89,7 +84,6 @@ export const attendanceController = {
       return res.status(403).json({ error: access.reason });
     }
 
-    // Validar que la sección existe
     const sectionRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
       `SELECT id FROM "${req.tenant!.schemaName}".sections WHERE id = $1::uuid LIMIT 1`,
       parsed.data.sectionId,
@@ -143,7 +137,7 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-        // El CEO siempre puede ver. Los docentes solo si imparten algún curso en la sección.
+    // El CEO siempre puede ver. Los docentes solo si imparten algún curso en la sección.
     if (req.user!.role !== 'ceo') {
       const isTeacherOfSection = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
         `SELECT EXISTS(
@@ -155,9 +149,7 @@ export const attendanceController = {
         req.user!.userId,
       );
       if (!isTeacherOfSection[0]?.exists) {
-        return res.status(403).json({
-          error: 'No enseñas en esta sección',
-        });
+        return res.status(403).json({ error: 'No enseñas en esta sección' });
       }
     }
 
@@ -192,7 +184,6 @@ export const attendanceController = {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
 
-    // Solo el CEO puede editar sesiones
     if (req.user!.role !== 'ceo') {
       return res.status(403).json({
         error: 'Solo el CEO puede editar sesiones de asistencia ya guardadas',
@@ -245,12 +236,10 @@ export const attendanceController = {
     res.json({ message: 'Sesión eliminada', session: deleted });
   },
 
-  // ── Registros ──────────────────────────────────────────────
+  // ── Registros ───────────────────────────────────────────────
 
   /**
    * PUT /api/attendance/sessions/:id/records/:studentId
-   * Regla: solo se puede modificar la asistencia del DÍA DE HOY.
-   * Pasado el día, solo el CEO puede modificar.
    */
   async upsertRecord(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');
@@ -269,7 +258,12 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    // Regla: si no es CEO, solo puede modificar sesiones de HOY
+    if (session.isFinal && req.user!.role !== 'ceo') {
+      return res.status(403).json({
+        error: 'La sesión ya fue cerrada. Solo el CEO puede editarla.',
+      });
+    }
+
     if (req.user!.role !== 'ceo') {
       const today = getTodayString();
       const sessionDate = String(session.sessionDate).substring(0, 10);
@@ -310,7 +304,6 @@ export const attendanceController = {
 
   /**
    * POST /api/attendance/sessions/:id/records/bulk
-   * Regla: solo se puede modificar la asistencia del DÍA DE HOY (excepto CEO).
    */
   async bulkRecords(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');
@@ -327,7 +320,12 @@ export const attendanceController = {
     );
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    // Regla: si no es CEO, solo puede modificar sesiones de HOY
+    if (session.isFinal && req.user!.role !== 'ceo') {
+      return res.status(403).json({
+        error: 'La sesión ya fue cerrada. Solo el CEO puede editarla.',
+      });
+    }
+
     if (req.user!.role !== 'ceo') {
       const today = getTodayString();
       const sessionDate = String(session.sessionDate).substring(0, 10);
@@ -371,12 +369,37 @@ export const attendanceController = {
     const saved = results.filter((r) => r.ok).length;
     const failed = results.filter((r) => !r.ok).length;
 
-    res.json({ sessionId, saved, failed, results });
+    let notificationResult = null;
+    let sessionClosed = false;
+
+    if (parsed.data.saveMode === 'final') {
+      await attendanceSessionsRepository.markAsFinal(req.tenant!.schemaName, sessionId);
+      sessionClosed = true;
+
+      try {
+        notificationResult = await notifyAbsencesForSession(
+          req.tenant!.schemaName,
+          sessionId,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error desconocido';
+        console.error('❌ Error notificando WhatsApp:', msg);
+        notificationResult = { error: msg };
+      }
+    }
+
+    res.json({
+      sessionId,
+      saved,
+      failed,
+      results,
+      sessionClosed,
+      notification: notificationResult,
+    });
   },
 
   /**
    * DELETE /api/attendance/sessions/:id/records/:studentId
-   * Regla: solo el CEO puede limpiar registros.
    */
   async removeRecord(req: Request, res: Response) {
     const sessionId = getStringParam(req, res, 'id');

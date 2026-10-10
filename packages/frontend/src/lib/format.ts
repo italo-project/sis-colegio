@@ -1,5 +1,7 @@
 /**
- * Formatea una sección como "3° Secundaria "A"".
+ * Formatea una sección como `3° Secundaria "A"`.
+ * Nota: gradeLevel.name ya incluye el nivel (ej: "3° Secundaria"),
+ * por eso NO agregamos el nivel nuevamente.
  */
 export const formatSection = (section: {
   name: string;
@@ -10,7 +12,7 @@ export const formatSection = (section: {
 };
 
 /**
- * Formatea una sección con año: "3° Secundaria "A" (2026)".
+ * Formatea una sección con año: `3° Secundaria "A" (2026)`.
  */
 export const formatSectionWithYear = (section: {
   name: string;
@@ -23,7 +25,7 @@ export const formatSectionWithYear = (section: {
 };
 
 /**
- * Formatea un curso completo: "Matemática 3°A 2026".
+ * Formatea un curso completo: `Matemática 3° Secundaria "A" 2026`.
  */
 export const formatCourse = (course: {
   subject: { name: string };
@@ -34,11 +36,8 @@ export const formatCourse = (course: {
   academicYear?: { year: number } | null;
 }): string => {
   const grade = course.section.gradeLevel?.name ?? '';
-  const section = course.section.name;
+  const sectionName = course.section.name;
   const year = course.academicYear?.year;
 
-  // Extraer el número del grado: "3° Secundaria" → "3°"
-  const gradeNumber = grade.split(' ')[0] ?? grade;
-
-  return `${course.subject.name} ${gradeNumber}${section}${year ? ` ${year}` : ''}`;
+  return `${course.subject.name} ${grade} "${sectionName}"${year ? ` ${year}` : ''}`;
 };

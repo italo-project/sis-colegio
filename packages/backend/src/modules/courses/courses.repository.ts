@@ -7,7 +7,7 @@ type CourseRow = {
   academic_year_id: string;
   section_id: string;
   subject_id: string;
-  teacher_id: string;
+  teacher_id: string | null;
   weekly_hours: number | null;
   is_active: boolean;
   created_at: Date;
@@ -24,9 +24,9 @@ type CourseDetailedRow = CourseRow & {
   subject_code: string;
   subject_name: string;
   subject_area: string | null;
-  teacher_full_name: string;
-  teacher_dni: string;
-  teacher_email: string;
+  teacher_full_name: string | null;
+  teacher_dni: string | null;
+  teacher_email: string | null;
 };
 
 const toApi = (row: CourseRow) => ({
@@ -41,43 +41,49 @@ const toApi = (row: CourseRow) => ({
   updatedAt: row.updated_at,
 });
 
-const toApiDetailed = (row: CourseDetailedRow) => ({
-  id: row.id,
-  academicYearId: row.academic_year_id,
-  sectionId: row.section_id,
-  subjectId: row.subject_id,
-  teacherId: row.teacher_id,
-  weeklyHours: row.weekly_hours,
-  isActive: row.is_active,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-  academicYear: {
-    id: row.academic_year_id,
-    year: row.year,
-  },
-  section: {
-    id: row.section_id,
-    name: row.section_name,
-    gradeLevel: {
-      id: row.grade_level_id,
-      code: row.grade_code,
-      name: row.grade_name,
-      level: row.grade_level,
+const toApiDetailed = (row: CourseDetailedRow) => {
+  const fullName = row.teacher_full_name ?? '';
+
+  return {
+    id: row.id,
+    academicYearId: row.academic_year_id,
+    sectionId: row.section_id,
+    subjectId: row.subject_id,
+    teacherId: row.teacher_id,
+    weeklyHours: row.weekly_hours,
+    isActive: row.is_active,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    academicYear: {
+      id: row.academic_year_id,
+      year: row.year,
     },
-  },
-  subject: {
-    id: row.subject_id,
-    code: row.subject_code,
-    name: row.subject_name,
-    area: row.subject_area,
-  },
-  teacher: {
-    id: row.teacher_id,
-    fullName: row.teacher_full_name,
-    dni: row.teacher_dni,
-    email: row.teacher_email,
-  },
-});
+    section: {
+      id: row.section_id,
+      name: row.section_name,
+      gradeLevel: {
+        id: row.grade_level_id,
+        code: row.grade_code,
+        name: row.grade_name,
+        level: row.grade_level,
+      },
+    },
+    subject: {
+      id: row.subject_id,
+      code: row.subject_code,
+      name: row.subject_name,
+      area: row.subject_area,
+    },
+    teacher: row.teacher_id
+      ? {
+          id: row.teacher_id,
+          fullName,
+          dni: row.teacher_dni ?? '',
+          email: row.teacher_email ?? '',
+        }
+      : null,
+  };
+};
 
 const buildDetailedSelect = (schemaName: string) => `
   SELECT
@@ -99,7 +105,7 @@ const buildDetailedSelect = (schemaName: string) => `
   JOIN "${schemaName}".sections s ON s.id = c.section_id
   JOIN "${schemaName}".grade_levels gl ON gl.id = s.grade_level_id
   JOIN "${schemaName}".subjects sub ON sub.id = c.subject_id
-  JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
+  LEFT JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
 `;
 
 export const coursesRepository = {
@@ -117,6 +123,67 @@ export const coursesRepository = {
       input.weeklyHours ?? null,
     );
     return toApi(rows[0]);
+  },
+
+  async bulkCreateForSection(
+    schemaName: string,
+    sectionId: string,
+    academicYearId: string,
+    courses: Array<{
+      subjectId: string;
+      teacherId: string | null;
+      weeklyHours?: number | null;
+    }>,
+  ) {
+    assertSafeSchemaName(schemaName);
+
+    const created: Array<{ id: string; subjectId: string }> = [];
+    const skipped: Array<{ subjectId: string; reason: string }> = [];
+    const errors: Array<{ subjectId: string; error: string }> = [];
+
+    for (const c of courses) {
+      try {
+        const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM "${schemaName}".courses
+            WHERE academic_year_id = $1::uuid
+              AND section_id = $2::uuid
+              AND subject_id = $3::uuid
+            LIMIT 1`,
+          academicYearId,
+          sectionId,
+          c.subjectId,
+        );
+
+        if (existing[0]) {
+          skipped.push({
+            subjectId: c.subjectId,
+            reason: 'Ya existía un curso con esa materia en esta sección',
+          });
+          continue;
+        }
+
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${schemaName}".courses
+             (academic_year_id, section_id, subject_id, teacher_id, weekly_hours)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5)
+           RETURNING id`,
+          academicYearId,
+          sectionId,
+          c.subjectId,
+          c.teacherId,
+          c.weeklyHours ?? null,
+        );
+
+        created.push({ id: rows[0].id, subjectId: c.subjectId });
+      } catch (err) {
+        errors.push({
+          subjectId: c.subjectId,
+          error: err instanceof Error ? err.message : 'Error desconocido',
+        });
+      }
+    }
+
+    return { created, skipped, errors };
   },
 
   async findDetailedById(schemaName: string, id: string) {
@@ -227,7 +294,7 @@ export const coursesRepository = {
       const value = (input as Record<string, unknown>)[key];
       if (value !== undefined) {
         const cast = key === 'teacherId' ? '::uuid' : '';
-        params.push(value);
+        params.push(value === '' ? null : value);
         fields.push(`${column} = $${params.length}${cast}`);
       }
     }
@@ -268,7 +335,9 @@ export const coursesRepository = {
 
   async countRelatedData(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
-    const rows = await prisma.$queryRawUnsafe<Array<{ enrollments: bigint; grade_categories: bigint }>>(
+    const rows = await prisma.$queryRawUnsafe<
+      Array<{ enrollments: bigint; grade_categories: bigint }>
+    >(
       `SELECT
          (SELECT COUNT(*) FROM "${schemaName}".enrollments WHERE course_id = $1::uuid) AS enrollments,
          (SELECT COUNT(*) FROM "${schemaName}".grade_categories WHERE course_id = $1::uuid) AS grade_categories

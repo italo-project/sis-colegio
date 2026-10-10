@@ -2,9 +2,13 @@ import { apiClient } from './client';
 import type {
   AcademicYear,
   AssignTutorPayload,
+  BulkCreateSectionsPayload,
+  BulkCreateSectionsResponse,
   CreateSectionPayload,
   GradeLevel,
   Section,
+  SectionCourse,
+  SectionStudent,
   UpdateSectionPayload,
 } from '@/types/section';
 
@@ -59,23 +63,15 @@ export const sectionsApi = {
     const { data } = await apiClient.get<GradeLevel[]>('/academic/grade-levels');
     return data;
   },
-    async getDetail(id: string) {
+
+  async getDetail(id: string) {
     const { data } = await apiClient.get(`/academic/sections/${id}/detail`);
     return data;
   },
 
   async listStudents(id: string) {
     const { data } = await apiClient.get<{
-      items: Array<{
-        id: string;
-        firstName: string;
-        lastName: string;
-        dni: string;
-        email: string | null;
-        phone: string | null;
-        hasAccount: boolean;
-        isActive: boolean;
-      }>;
+      items: SectionStudent[];
       total: number;
     }>(`/academic/sections/${id}/students`);
     return data;
@@ -83,18 +79,17 @@ export const sectionsApi = {
 
   async listCourses(id: string) {
     const { data } = await apiClient.get<{
-      items: Array<{
-        id: string;
-        subjectId: string;
-        subject: { code: string; name: string; area: string | null };
-        teacher: { id: string; firstName: string; lastName: string };
-        weeklyHours: number | null;
-        isActive: boolean;
-        studentsCount: number;
-      }>;
+      items: SectionCourse[];
       total: number;
     }>(`/academic/sections/${id}/courses`);
     return data;
   },
-  
+
+  async bulkCreate(payload: BulkCreateSectionsPayload) {
+    const { data } = await apiClient.post<BulkCreateSectionsResponse>(
+      '/academic/sections/bulk',
+      payload,
+    );
+    return data;
+  },
 };

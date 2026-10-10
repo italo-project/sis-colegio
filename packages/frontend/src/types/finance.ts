@@ -1,4 +1,4 @@
-// ── Conceptos ────────────────────────────────────────────────
+// ── Conceptos ──────────────────────────────────────────────
 export type FeeConcept = {
   id: string;
   name: string;
@@ -19,7 +19,7 @@ export type CreateFeeConceptPayload = {
 
 export type UpdateFeeConceptPayload = Partial<Omit<CreateFeeConceptPayload, 'code'>>;
 
-// ── Facturas ─────────────────────────────────────────────────
+// ── Facturas ────────────────────────────────────────────────
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 
 export type Invoice = {
@@ -37,8 +37,7 @@ export type Invoice = {
 
   student?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
   };
   feeConcept?: {
@@ -71,7 +70,7 @@ export type BulkInvoicesPayload = {
   notes?: string;
 };
 
-// ── Pagos ────────────────────────────────────────────────────
+// ── Pagos ───────────────────────────────────────────────────
 export type Payment = {
   id: string;
   invoiceId: string;
@@ -87,7 +86,7 @@ export type Payment = {
   updatedAt: string;
 };
 
-// ── Reportes ─────────────────────────────────────────────────
+// ── Reportes ────────────────────────────────────────────────
 export type FinanceSummary = {
   byStatus: Record<InvoiceStatus, { count: number; total: number }>;
   totalBilled: number;
@@ -105,7 +104,7 @@ export type ReportByPeriod = {
 export type OverdueInvoice = {
   id: string;
   studentId: string;
-  student: { firstName: string; lastName: string; dni: string };
+  student: { fullName: string; dni: string };
   feeConcept: { name: string; code: string };
   amount: number;
   dueDate: string;

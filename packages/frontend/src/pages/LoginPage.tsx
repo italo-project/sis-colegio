@@ -1,22 +1,33 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useQuery } from '@tanstack/react-query';
 import { GraduationCap, Loader2 } from 'lucide-react';
 import { authApi } from '@/api/auth.api';
+import { apiClient, getErrorMessage } from '@/api/client';
 import { useAuthStore } from '@/stores/auth.store';
-import { getErrorMessage } from '@/api/client';
 import { setCurrentSubdomain } from '@/lib/subdomain';
-import { Link } from 'react-router-dom';
+import {
+  SearchableSelect,
+  type SearchableOption,
+} from '@/components/ui/SearchableSelect';
 
 const loginSchema = z.object({
-  subdomain: z.string().min(2, 'Requerido'),
+  subdomain: z.string().min(1, 'Selecciona un colegio'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Requerido'),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
+
+type Organization = {
+  id: string;
+  name: string;
+  subdomain: string;
+  plan: string;
+};
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -26,15 +37,34 @@ export const LoginPage = () => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      subdomain: 'sanmartin',
+      subdomain: '',
       email: '',
       password: '',
     },
   });
+
+  const subdomain = watch('subdomain');
+
+  // Cargar la lista de colegios disponibles
+  const { data: organizations, isLoading: loadingOrgs } = useQuery({
+    queryKey: ['public-organizations'],
+    queryFn: async () => {
+      const { data } = await apiClient.get<Organization[]>('/organizations');
+      return data;
+    },
+  });
+
+  const orgOptions: SearchableOption[] = (organizations ?? []).map((o) => ({
+    value: o.subdomain,
+    label: o.name,
+    keywords: o.subdomain,
+  }));
 
   const onSubmit = async (form: LoginForm) => {
     setServerError(null);
@@ -64,15 +94,20 @@ export const LoginPage = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Colegio
             </label>
-            <input
-              type="text"
-              {...register('subdomain')}
-              placeholder="sanmartin"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+            <SearchableSelect
+              options={orgOptions}
+              value={subdomain}
+              onChange={(val) => setValue('subdomain', val, { shouldValidate: true })}
+              placeholder="Selecciona tu colegio..."
+              searchPlaceholder="Buscar colegio..."
+              emptyMessage="No hay colegios disponibles"
+              loading={loadingOrgs}
+              error={errors.subdomain?.message}
             />
-            {errors.subdomain && (
-              <p className="text-xs text-red-600 mt-1">{errors.subdomain.message}</p>
-            )}
+            <input
+              type="hidden"
+              {...register('subdomain', { required: 'Selecciona un colegio' })}
+            />
           </div>
 
           <div>
@@ -82,7 +117,7 @@ export const LoginPage = () => {
             <input
               type="email"
               {...register('email')}
-              placeholder="tu@email.com"
+              placeholder="Ingresa tu correo"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
             />
             {errors.email && (
@@ -128,11 +163,11 @@ export const LoginPage = () => {
         </form>
 
         <Link
-  to="/forgot-password"
-  className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium mt-6"
->
-  ¿Olvidaste tu contraseña?
-</Link>
+          to="/forgot-password"
+          className="block text-center text-sm text-primary-600 hover:text-primary-700 font-medium mt-6"
+        >
+          ¿Olvidaste tu contraseña?
+        </Link>
       </div>
     </div>
   );

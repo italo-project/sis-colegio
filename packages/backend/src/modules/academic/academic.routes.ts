@@ -3,6 +3,7 @@ import { resolveTenant } from '../../middleware/tenant';
 import { requireAuth } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 import { academicController } from './academic.controller';
+import { closeYearController } from '../academic-close-year/close-year.controller';
 
 export const academicRouter = Router();
 
@@ -62,6 +63,7 @@ academicRouter.get(
 
 // Crear, editar, desactivar
 academicRouter.post('/sections', requireRole('ceo'), academicController.createSection);
+academicRouter.post('/sections/bulk', requireRole('ceo'), academicController.bulkCreateSections);
 academicRouter.patch('/sections/:id', requireRole('ceo'), academicController.updateSection);
 academicRouter.delete('/sections/:id', requireRole('ceo'), academicController.deactivateSection);
 academicRouter.post(
@@ -73,4 +75,36 @@ academicRouter.delete(
   '/sections/:id/hard',
   requireRole('ceo'),
   academicController.hardDeleteSection,
+);
+
+// ─── Fase E: Cierre de año escolar ──────────────────────────────
+// IMPORTANTE: van al final para no chocar con /sections/:id
+academicRouter.get(
+  '/close-year/candidates',
+  requireRole('ceo'),
+  closeYearController.listCandidates,
+);
+
+academicRouter.post(
+  '/close-year',
+  requireRole('ceo'),
+  closeYearController.closeYear,
+);
+
+academicRouter.post(
+  '/preload-next-year',
+  requireRole('ceo'),
+  closeYearController.preloadNextYear,
+);
+
+academicRouter.post(
+  '/assign-next-sections',
+  requireRole('ceo'),
+  closeYearController.assignNextSections,
+);
+
+academicRouter.get(
+  '/students/:id/year-history',
+  requireRole('ceo', 'estudiante', 'padre'),
+  closeYearController.getStudentHistory,
 );

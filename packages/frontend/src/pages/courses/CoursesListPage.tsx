@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, RotateCcw, AlertTriangle, BookOpen } from 'lucide-react';
 import { coursesApi } from '@/api/courses.api';
 import { Button } from '@/components/ui/Button';
 import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
 import { CourseFormModal } from './CourseFormModal.tsx';
 import { getErrorMessage } from '@/api/client';
 import { formatCourse } from '@/lib/format';
+import { AutoGenerateCoursesModal } from './AutoGenerateCoursesModal';
+
 import type { Course } from '@/types/course';
 
 export const CoursesListPage = () => {
@@ -14,6 +16,7 @@ export const CoursesListPage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isAutoGenOpen, setIsAutoGenOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
@@ -66,7 +69,7 @@ export const CoursesListPage = () => {
         c.subject.code.toLowerCase().includes(q) ||
         c.section.name.toLowerCase().includes(q) ||
         c.section.gradeLevel?.name.toLowerCase().includes(q) ||
-        `${c.teacher.firstName} ${c.teacher.lastName}`.toLowerCase().includes(q)
+        (c.teacher?.fullName ?? '').toLowerCase().includes(q)
       );
     }) ?? [];
 
@@ -147,9 +150,21 @@ export const CoursesListPage = () => {
             {data?.total === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={handleCreate} icon={<Plus className="w-4 h-4" />}>
-          Nuevo curso
-        </Button>
+        <div className="flex gap-2">
+  <Button
+    variant="secondary"
+    onClick={handleCreate}
+    icon={<Plus className="w-4 h-4" />}
+  >
+    Crear uno
+  </Button>
+  <Button
+    onClick={() => setIsAutoGenOpen(true)}
+    icon={<BookOpen className="w-4 h-4" />}
+  >
+    Auto-generar
+  </Button>
+</div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -196,8 +211,10 @@ export const CoursesListPage = () => {
 </td>
                     <td className="px-4 py-3 text-gray-600">{course.academicYear.year}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {course.teacher.lastName}, {course.teacher.firstName}
-                    </td>
+  {course.teacher
+    ? course.teacher.fullName
+    : <span className="text-yellow-600 text-xs">Sin asignar</span>}
+</td>
                     <td className="px-4 py-3 text-gray-600">{course.weeklyHours ?? '—'}</td>
                     <td className="px-4 py-3">
                       {course.isActive ? (
@@ -269,6 +286,14 @@ export const CoursesListPage = () => {
           handleCloseForm();
         }}
       />
+      <AutoGenerateCoursesModal
+  open={isAutoGenOpen}
+  onClose={() => setIsAutoGenOpen(false)}
+  onSuccess={() => {
+    queryClient.invalidateQueries({ queryKey: ['courses'] });
+    setToast({ type: 'success', msg: 'Cursos generados' });
+  }}
+/>
     </div>
   );
 };

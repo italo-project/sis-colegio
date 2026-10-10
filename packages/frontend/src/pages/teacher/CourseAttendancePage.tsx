@@ -8,19 +8,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { formatDateEs } from '@/lib/dates';
-import type { AttendanceSession, AttendanceStatus } from '@/types/grades';
+import type { AttendanceSession } from '@/types/grades';
 import type { Course } from '@/types/course';
 import { useAuthStore } from '@/stores/auth.store';
+import { AttendanceSheetModal } from './AttendanceSheetModal';
 
-const statusLabels: Record<AttendanceStatus, string> = {
-  present: 'Asistió',
-  late: 'Tardanza',
-  absent: 'Faltó',
-};
-
-/**
- * Fecha de hoy en formato YYYY-MM-DD (zona horaria Perú).
- */
 const getTodayString = (): string => {
   const now = new Date();
   const peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));
@@ -107,10 +99,10 @@ export const CourseAttendancePage = () => {
         </div>
       </div>
 
-      {/* Aviso sobre reglas */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
-        <strong>Reglas:</strong> La asistencia solo se puede tomar del día de hoy. Una vez
-        guardada, solo el CEO puede editarla o eliminarla.
+        <strong>Reglas:</strong> La asistencia solo se puede tomar del día de hoy. Puedes
+        guardar cambios como borrador o cerrar la sesión definitivamente (esto notifica a los
+        padres por WhatsApp).
       </div>
 
       {isLoading ? (
@@ -130,6 +122,7 @@ export const CourseAttendancePage = () => {
               <tr>
                 <th className="text-left font-medium px-4 py-3">Fecha</th>
                 <th className="text-left font-medium px-4 py-3">Tema</th>
+                <th className="text-left font-medium px-4 py-3">Estado</th>
                 <th className="text-left font-medium px-4 py-3">Registrado</th>
                 <th className="text-right font-medium px-4 py-3">Acciones</th>
               </tr>
@@ -138,7 +131,7 @@ export const CourseAttendancePage = () => {
               {sessionsData.items.map((session) => {
                 const sessionDate = String(session.sessionDate).substring(0, 10);
                 const isToday = sessionDate === today;
-                const canEdit = isCeo || isToday;
+                const canEdit = !session.isFinal && (isCeo || isToday);
 
                 return (
                   <tr key={session.id} className="hover:bg-gray-50">
@@ -151,6 +144,18 @@ export const CourseAttendancePage = () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{session.topic ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      {session.isFinal ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                          <Lock className="w-3 h-3" />
+                          Cerrada
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                          Borrador
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
                       {new Date(session.createdAt).toLocaleString('es-PE')}
                     </td>
@@ -205,7 +210,7 @@ export const CourseAttendancePage = () => {
       {sheetFor && (
         <AttendanceSheetModal
           sessionId={sheetFor.id}
-          isCeo={isCeo}
+          canEditSession={isCeo || !sheetFor.isFinal}
           onClose={() => {
             setSheetFor(null);
             queryClient.invalidateQueries({ queryKey: ['attendance-sessions'] });
@@ -271,170 +276,6 @@ const CreateSessionModal = ({
           placeholder="Ej: Álgebra - Ecuaciones"
         />
       </div>
-    </Modal>
-  );
-};
-
-// ─── Modal de planilla de asistencia ─────────────────────────
-const AttendanceSheetModal = ({
-  sessionId,
-  isCeo,
-  onClose,
-}: {
-  sessionId: string;
-  isCeo: boolean;
-  onClose: () => void;
-}) => {
-  const queryClient = useQueryClient();
-  const [edits, setEdits] = useState<Record<string, AttendanceStatus>>({});
-  const [saving, setSaving] = useState(false);
-
-  const { data: sheet, isLoading } = useQuery({
-    queryKey: ['attendance-sheet', sessionId],
-    queryFn: () => attendanceApi.getSession(sessionId),
-  });
-
-  const today = getTodayString();
-  const sessionDate = sheet ? String(sheet.session.sessionDate).substring(0, 10) : '';
-  const isToday = sessionDate === today;
-  const canEdit = isCeo || isToday;
-
-  const handleChange = (studentId: string, status: AttendanceStatus) => {
-    if (!canEdit) return;
-    setEdits((prev) => ({ ...prev, [studentId]: status }));
-  };
-
-  const handleSave = async () => {
-    const records = Object.entries(edits).map(([studentId, status]) => ({
-      studentId,
-      status,
-    }));
-
-    if (records.length === 0) {
-      alert('No hay cambios que guardar');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const result = await attendanceApi.bulkRecords(sessionId, records);
-      alert(`✅ ${result.saved} registro(s) guardado(s)`);
-      setEdits({});
-      queryClient.invalidateQueries({ queryKey: ['attendance-sheet', sessionId] });
-    } catch (err) {
-      alert(getErrorMessage(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const getStatusFor = (studentId: string, currentStatus: string | undefined): AttendanceStatus => {
-    return edits[studentId] ?? (currentStatus as AttendanceStatus) ?? 'present';
-  };
-
-  return (
-    <Modal
-      open={true}
-      onClose={onClose}
-      title={`Asistencia — ${sheet ? formatDateEs(sheet.session.sessionDate) : ''}`}
-      size="lg"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cerrar
-          </Button>
-          {canEdit && (
-            <Button onClick={handleSave} loading={saving}>
-              Guardar cambios
-            </Button>
-          )}
-        </>
-      }
-    >
-      {isLoading ? (
-        <div className="p-8 text-center text-gray-500">Cargando...</div>
-      ) : !sheet ? (
-        <div className="p-8 text-center text-gray-500">Sesión no encontrada</div>
-      ) : (
-        <div>
-          {!canEdit && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800 mb-4 flex items-center gap-2">
-              <Lock className="w-4 h-4" />
-              <span>
-                Esta sesión es de un día anterior. Solo el CEO puede modificarla.
-              </span>
-            </div>
-          )}
-
-          {sheet.summary && (
-            <div className="grid grid-cols-4 gap-2 mb-4">
-              <div className="bg-green-50 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-green-700">{sheet.summary.present}</div>
-                <div className="text-xs text-green-600">Asistieron</div>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-yellow-700">{sheet.summary.late}</div>
-                <div className="text-xs text-yellow-600">Tardanzas</div>
-              </div>
-              <div className="bg-red-50 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-red-700">{sheet.summary.absent}</div>
-                <div className="text-xs text-red-600">Faltas</div>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2 text-center">
-                <div className="text-lg font-bold text-gray-700">{sheet.summary.notRecorded}</div>
-                <div className="text-xs text-gray-600">Sin marcar</div>
-              </div>
-            </div>
-          )}
-
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="text-left font-medium px-4 py-2">Estudiante</th>
-                  <th className="text-right font-medium px-4 py-2 w-64">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sheet.rows.map((row) => {
-                  const status = getStatusFor(row.student.id, row.record?.status);
-                  const hasEdit = edits[row.student.id] !== undefined;
-
-                  return (
-                    <tr key={row.student.id} className={hasEdit ? 'bg-yellow-50' : ''}>
-                      <td className="px-4 py-2">
-                        {row.student.lastName}, {row.student.firstName}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1">
-                          {(['present', 'late', 'absent'] as AttendanceStatus[]).map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => handleChange(row.student.id, s)}
-                              disabled={!canEdit}
-                              className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                status === s
-                                  ? s === 'present'
-                                    ? 'bg-green-600 text-white'
-                                    : s === 'late'
-                                      ? 'bg-yellow-500 text-white'
-                                      : 'bg-red-600 text-white'
-                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              } ${!canEdit ? 'cursor-not-allowed opacity-60' : ''}`}
-                            >
-                              {statusLabels[s]}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </Modal>
   );
 };

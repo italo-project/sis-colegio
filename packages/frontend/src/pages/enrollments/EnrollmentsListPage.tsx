@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Trash2, AlertTriangle, Layers } from 'lucide-react';
+import { Plus, Search, Trash2, AlertTriangle, Users } from 'lucide-react';
 import { enrollmentsApi } from '@/api/enrollments.api';
 import { coursesApi } from '@/api/courses.api';
 import { Button } from '@/components/ui/Button';
 import { EnrollmentFormModal } from './EnrollmentFormModal';
-import { BulkEnrollModal } from './BulkEnrollModal';
+import { AutoEnrollModal } from './AutoEnrollModal';
 import { getErrorMessage } from '@/api/client';
 import { formatCourse } from '@/lib/format';
 import type { Enrollment } from '@/types/enrollment';
@@ -15,7 +15,7 @@ export const EnrollmentsListPage = () => {
   const [search, setSearch] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isAutoEnrollOpen, setIsAutoEnrollOpen] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   const { data: courses } = useQuery({
@@ -46,14 +46,14 @@ export const EnrollmentsListPage = () => {
       if (!search) return true;
       const q = search.toLowerCase();
       return (
-        `${e.student.firstName} ${e.student.lastName}`.toLowerCase().includes(q) ||
+        e.student.fullName.toLowerCase().includes(q) ||
         e.student.dni.toLowerCase().includes(q) ||
         e.course.subject.name.toLowerCase().includes(q)
       );
     }) ?? [];
 
   const handleDelete = (enrollment: Enrollment) => {
-    const label = `${enrollment.student.lastName}, ${enrollment.student.firstName} en ${enrollment.course.subject.name}`;
+    const label = `${enrollment.student.fullName} en ${enrollment.course.subject.name}`;
     if (
       confirm(
         `¿Retirar la matrícula de ${label}?\n\nSe eliminarán las notas y asistencias registradas para este estudiante en este curso.`,
@@ -89,10 +89,10 @@ export const EnrollmentsListPage = () => {
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            onClick={() => setIsBulkOpen(true)}
-            icon={<Layers className="w-4 h-4" />}
+            onClick={() => setIsAutoEnrollOpen(true)}
+            icon={<Users className="w-4 h-4" />}
           >
-            Matricular sección
+            Auto-matricular
           </Button>
           <Button onClick={() => setIsFormOpen(true)} icon={<Plus className="w-4 h-4" />}>
             Nueva matrícula
@@ -113,8 +113,7 @@ export const EnrollmentsListPage = () => {
             />
           </div>
 
-          <select
-            value={courseFilter}
+          <select            value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none text-sm"
           >
@@ -151,21 +150,25 @@ export const EnrollmentsListPage = () => {
                   <tr key={enrollment.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">
-                        {enrollment.student.lastName}, {enrollment.student.firstName}
+                        {enrollment.student.fullName}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{enrollment.student.dni}</td>
                     <td className="px-4 py-3">
-  <div className="font-medium text-gray-900">
-    {formatCourse({
-      subject: enrollment.course.subject,
-      section: enrollment.course.section,
-      academicYear: enrollment.course.academicYear,
-    })}
-  </div>
-</td>
+                      <div className="font-medium text-gray-900">
+                        {formatCourse({
+                          subject: enrollment.course.subject,
+                          section: enrollment.course.section,
+                          academicYear: enrollment.course.academicYear,
+                        })}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {enrollment.course.teacher.lastName}, {enrollment.course.teacher.firstName}
+                      {enrollment.course.teacher ? (
+                        enrollment.course.teacher.fullName
+                      ) : (
+                        <span className="text-yellow-600 text-xs">Sin asignar</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {enrollment.status === 'active' && (
@@ -211,16 +214,12 @@ export const EnrollmentsListPage = () => {
         }}
       />
 
-      <BulkEnrollModal
-        open={isBulkOpen}
-        onClose={() => setIsBulkOpen(false)}
-        onSuccess={(count) => {
+      <AutoEnrollModal
+        open={isAutoEnrollOpen}
+        onClose={() => setIsAutoEnrollOpen(false)}
+        onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-          setToast({
-            type: 'success',
-            msg: `${count} estudiante${count === 1 ? '' : 's'} matriculado${count === 1 ? '' : 's'}`,
-          });
-          setIsBulkOpen(false);
+          setToast({ type: 'success', msg: 'Matriculación completada' });
         }}
       />
     </div>

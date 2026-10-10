@@ -18,11 +18,8 @@ type StudentParentRow = {
 };
 
 type StudentParentDetailedRow = StudentParentRow & {
-  // Estudiante
-  student_first_name: string;
-  student_last_name: string;
+  student_full_name: string;
   student_dni: string;
-  // Padre
   parent_full_name: string;
   parent_dni: string;
   parent_email: string;
@@ -51,8 +48,7 @@ const toApiDetailed = (row: StudentParentDetailedRow) => ({
   updatedAt: row.updated_at,
   student: {
     id: row.student_id,
-    firstName: row.student_first_name,
-    lastName: row.student_last_name,
+    fullName: row.student_full_name,
     dni: row.student_dni,
   },
   parent: {
@@ -67,8 +63,7 @@ const toApiDetailed = (row: StudentParentDetailedRow) => ({
 const buildDetailedSelect = (schemaName: string) => `
   SELECT
     sp.*,
-    s.first_name AS student_first_name,
-    s.last_name AS student_last_name,
+    s.full_name AS student_full_name,
     s.dni AS student_dni,
     p.full_name AS parent_full_name,
     p.dni AS parent_dni,
@@ -152,7 +147,7 @@ export const studentParentsRepository = {
 
     const rows = await prisma.$queryRawUnsafe<StudentParentDetailedRow[]>(
       `${buildDetailedSelect(schemaName)} ${where}
-       ORDER BY sp.is_primary DESC, p.full_name ASC, s.last_name ASC`,
+       ORDER BY sp.is_primary DESC, p.full_name ASC, s.full_name ASC`,
       ...params,
     );
     return rows.map(toApiDetailed);

@@ -60,7 +60,11 @@ export const StudentMyCoursesPage = () => {
             <div className="p-4">
               <div className="text-xs text-gray-500 mb-1">Docente</div>
               <div className="text-sm font-medium text-gray-900">
-                {enrollment.course.teacher.firstName} {enrollment.course.teacher.lastName}
+                {enrollment.course.teacher ? (
+                  enrollment.course.teacher.fullName
+                ) : (
+                  <span className="text-yellow-600 text-xs">Sin asignar</span>
+                )}
               </div>
               <Link
                 to="/my-grades"

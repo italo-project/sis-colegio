@@ -17,6 +17,17 @@ export const listEnrollmentsQuerySchema = z.object({
   status: z.enum(['active', 'withdrawn', 'completed']).optional(),
 });
 
+// ── Auto-matricular sección ────────────────────────────────────────────
+export const autoEnrollSectionSchema = z.object({
+  sectionId: z.string().uuid(),
+  studentIds: z
+    .array(z.string().uuid())
+    .min(1, 'Selecciona al menos un estudiante')
+    .max(1000, 'Máximo 1000 estudiantes por lote'),
+});
+
+export type AutoEnrollSectionInput = z.infer<typeof autoEnrollSectionSchema>;
+
 export type CreateEnrollmentInput = z.infer<typeof createEnrollmentSchema>;
 export type UpdateEnrollmentInput = z.infer<typeof updateEnrollmentSchema>;
 export type ListEnrollmentsQuery = z.infer<typeof listEnrollmentsQuerySchema>;

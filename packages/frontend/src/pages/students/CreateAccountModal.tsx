@@ -57,7 +57,7 @@ export const CreateAccountModal = ({ open, onClose, student, onSuccess }: Props)
     <Modal
       open={open}
       onClose={onClose}
-      title={`Crear cuenta para ${student?.firstName ?? ''} ${student?.lastName ?? ''}`}
+      title={`Crear cuenta para ${student?.fullName ?? ''}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>

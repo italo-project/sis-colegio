@@ -1,11 +1,24 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, KeyRound, RotateCcw, AlertTriangle } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  KeyRound,
+  RotateCcw,
+  AlertTriangle,
+  ArrowRightLeft,
+  History,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { studentsApi } from '@/api/students.api';
 import { Button } from '@/components/ui/Button';
 import { StatusFilter, type FilterValue } from '@/components/ui/StatusFilter';
-import { StudentFormModal } from './StudentFormModal.tsx';
-import { CreateAccountModal } from './CreateAccountModal.tsx';
+import { StudentFormModal } from './StudentFormModal';
+import { CreateAccountModal } from './CreateAccountModal';
+import { BulkCreateStudentsModal } from './BulkCreateStudentsModal';
+import { ChangeSectionModal } from './ChangeSectionModal';
 import { getErrorMessage } from '@/api/client';
 import type { Student } from '@/types/student';
 
@@ -14,11 +27,12 @@ export const StudentsListPage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [accountFor, setAccountFor] = useState<Student | null>(null);
+  const [changingSection, setChangingSection] = useState<Student | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  // Mapear el filtro a lo que espera el backend
   const activeParam: 'true' | 'false' | undefined =
     statusFilter === 'active' ? 'true' : statusFilter === 'inactive' ? 'false' : undefined;
 
@@ -60,13 +74,13 @@ export const StudentsListPage = () => {
     onError: (err) => setToast({ type: 'error', msg: getErrorMessage(err) }),
   });
 
-  const handleEdit = (student: Student) => {
-    setEditing(student);
+  const handleCreate = () => {
+    setEditing(null);
     setIsFormOpen(true);
   };
 
-  const handleCreate = () => {
-    setEditing(null);
+  const handleEdit = (student: Student) => {
+    setEditing(student);
     setIsFormOpen(true);
   };
 
@@ -78,7 +92,7 @@ export const StudentsListPage = () => {
   const handleDeactivate = (student: Student) => {
     if (
       confirm(
-        `¿Desactivar a ${student.firstName} ${student.lastName}?\n\nNo se eliminará, solo quedará inactivo.`,
+        `¿Desactivar a ${student.fullName}?\n\nNo se eliminará, solo quedará inactivo.`,
       )
     ) {
       deactivateMutation.mutate(student.id);
@@ -86,7 +100,7 @@ export const StudentsListPage = () => {
   };
 
   const handleReactivate = (student: Student) => {
-    if (confirm(`¿Reactivar a ${student.firstName} ${student.lastName}?`)) {
+    if (confirm(`¿Reactivar a ${student.fullName}?`)) {
       reactivateMutation.mutate(student.id);
     }
   };
@@ -106,7 +120,7 @@ export const StudentsListPage = () => {
         if (bd?.parents) detalles.push(`${bd.parents} vínculo(s) con padres`);
 
         alert(
-          `No se puede eliminar a ${student.firstName} ${student.lastName}.\n\n` +
+          `No se puede eliminar a ${student.fullName}.\n\n` +
             `Tiene datos asociados:\n• ${detalles.join('\n• ')}\n\n` +
             `Solución: desactívalo en lugar de eliminarlo.`,
         );
@@ -115,7 +129,7 @@ export const StudentsListPage = () => {
 
       if (
         confirm(
-          `¿Eliminar DEFINITIVAMENTE a ${student.firstName} ${student.lastName}?\n\n` +
+          `¿Eliminar DEFINITIVAMENTE a ${student.fullName}?\n\n` +
             `Esta acción NO se puede deshacer.`,
         )
       ) {
@@ -124,6 +138,11 @@ export const StudentsListPage = () => {
     } catch (err) {
       alert(getErrorMessage(err));
     }
+  };
+
+  const formatSection = (student: Student): string => {
+    if (!student.section) return '—';
+    return `${student.section.gradeLevel.name} "${student.section.name}"`;
   };
 
   return (
@@ -149,9 +168,18 @@ export const StudentsListPage = () => {
             {data?.total === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={handleCreate} icon={<Plus className="w-4 h-4" />}>
-          Nuevo estudiante
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            onClick={handleCreate}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Crear uno
+          </Button>
+          <Button onClick={() => setIsBulkOpen(true)} icon={<Plus className="w-4 h-4" />}>
+            Crear varios
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -180,11 +208,11 @@ export const StudentsListPage = () => {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
-                  <th className="text-left font-medium px-4 py-3">Nombre</th>
+                  <th className="text-left font-medium px-4 py-3">Nombre completo</th>
                   <th className="text-left font-medium px-4 py-3">DNI</th>
                   <th className="text-left font-medium px-4 py-3">Email</th>
                   <th className="text-left font-medium px-4 py-3">Apoderado</th>
-                  <th className="text-left font-medium px-4 py-3">Cuenta</th>
+                  <th className="text-left font-medium px-4 py-3">Sección</th>
                   <th className="text-left font-medium px-4 py-3">Estado</th>
                   <th className="text-right font-medium px-4 py-3">Acciones</th>
                 </tr>
@@ -193,26 +221,14 @@ export const StudentsListPage = () => {
                 {data.items.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">
-                        {student.lastName}, {student.firstName}
-                      </div>
+                      <div className="font-medium text-gray-900">{student.fullName}</div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{student.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{student.email ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {student.guardianName ?? '—'}
+                      {student.guardian?.fullName ?? '—'}
                     </td>
-                    <td className="px-4 py-3">
-                      {student.hasAccount ? (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                          Sí
-                        </span>
-                      ) : (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                          No
-                        </span>
-                      )}
-                    </td>
+                    <td className="px-4 py-3 text-gray-600">{formatSection(student)}</td>
                     <td className="px-4 py-3">
                       {student.isActive ? (
                         <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
@@ -233,6 +249,24 @@ export const StudentsListPage = () => {
                         >
                           <Edit className="w-4 h-4" />
                         </button>
+
+                        <Link
+                          to={`/students/${student.id}/history`}
+                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          title="Ver historial de secciones"
+                        >
+                          <History className="w-4 h-4" />
+                        </Link>
+
+                        {student.isActive && (
+                          <button
+                            onClick={() => setChangingSection(student)}
+                            className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Cambiar de sección"
+                          >
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </button>
+                        )}
 
                         {!student.hasAccount && student.isActive && (
                           <button
@@ -294,6 +328,14 @@ export const StudentsListPage = () => {
         }}
       />
 
+      <BulkCreateStudentsModal
+        open={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+        }}
+      />
+
       <CreateAccountModal
         open={!!accountFor}
         onClose={() => setAccountFor(null)}
@@ -302,6 +344,16 @@ export const StudentsListPage = () => {
           queryClient.invalidateQueries({ queryKey: ['students'] });
           setToast({ type: 'success', msg: 'Cuenta creada exitosamente' });
           setAccountFor(null);
+        }}
+      />
+
+      <ChangeSectionModal
+        open={!!changingSection}
+        onClose={() => setChangingSection(null)}
+        student={changingSection}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+          setToast({ type: 'success', msg: 'Cambio de sección completado' });
         }}
       />
     </div>

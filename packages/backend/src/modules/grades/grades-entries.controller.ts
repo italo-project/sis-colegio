@@ -14,7 +14,6 @@ import {
 export const gradeEntriesController = {
   /**
    * PUT /api/grades/evaluations/:evaluationId/grades/:studentId
-   * Crea o actualiza la nota de un estudiante en una evaluación.
    */
   async upsert(req: Request, res: Response) {
     const evaluationId = getStringParam(req, res, 'evaluationId');
@@ -27,7 +26,6 @@ export const gradeEntriesController = {
       return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten() });
     }
 
-    // Validar acceso al curso de la evaluación
     const access = await canManageEvaluation(
       req,
       evaluationId,
@@ -38,13 +36,11 @@ export const gradeEntriesController = {
       return res.status(403).json({ error: access.reason });
     }
 
-    // Validar que el estudiante existe y está activo
     const student = await studentsRepository.findById(req.tenant!.schemaName, studentId);
     if (!student || !student.isActive) {
       return res.status(404).json({ error: 'Estudiante no encontrado o inactivo' });
     }
 
-    // Validar que score <= max_score de la evaluación
     const evaluation = await evaluationsRepository.findById(
       req.tenant!.schemaName,
       evaluationId,
@@ -59,7 +55,6 @@ export const gradeEntriesController = {
       }
     }
 
-    // Validar que el estudiante está matriculado en el curso de la evaluación
     const category = await gradeCategoriesRepository.findById(
       req.tenant!.schemaName,
       evaluation.categoryId,
@@ -91,7 +86,6 @@ export const gradeEntriesController = {
 
   /**
    * POST /api/grades/evaluations/:evaluationId/grades/bulk
-   * Guarda múltiples notas de una vez (útil para la planilla del docente).
    */
   async bulk(req: Request, res: Response) {
     const evaluationId = getStringParam(req, res, 'evaluationId');
@@ -124,14 +118,12 @@ export const gradeEntriesController = {
     );
     if (!category) return res.status(404).json({ error: 'Categoría no encontrada' });
 
-    // Validar que los estudiantes están matriculados en el curso
     const enrollments = await enrollmentsRepository.listByCourse(
       req.tenant!.schemaName,
       category.courseId,
     );
     const enrolledIds = new Set(enrollments.map((e) => e.studentId));
 
-    // Validar scores antes de tocar la base de datos
     const results: Array<{ studentId: string; ok: boolean; error?: string }> = [];
     const validEntries: typeof parsed.data.grades = [];
 
@@ -155,7 +147,6 @@ export const gradeEntriesController = {
       validEntries.push(g);
     }
 
-    // Guardar en transacción
     for (const g of validEntries) {
       await gradeEntriesRepository.upsert(
         req.tenant!.schemaName,
@@ -181,8 +172,6 @@ export const gradeEntriesController = {
 
   /**
    * GET /api/grades/evaluations/:evaluationId/grades
-   * Devuelve la planilla completa: todos los estudiantes del curso
-   * con su nota (si existe) en la evaluación indicada.
    */
   async listByEvaluation(req: Request, res: Response) {
     const evaluationId = getStringParam(req, res, 'evaluationId');
@@ -210,13 +199,11 @@ export const gradeEntriesController = {
     );
     if (!category) return res.status(404).json({ error: 'Categoría no encontrada' });
 
-    // Estudiantes del curso
     const enrollments = await enrollmentsRepository.listByCourse(
       req.tenant!.schemaName,
       category.courseId,
     );
 
-    // Notas existentes
     const entries = await gradeEntriesRepository.listByEvaluation(
       req.tenant!.schemaName,
       evaluationId,
@@ -243,8 +230,6 @@ export const gradeEntriesController = {
 
   /**
    * GET /api/grades/courses/:courseId/students/:studentId/grades
-   * Devuelve todas las notas de un estudiante en un curso,
-   * con promedios por categoría y promedio final.
    */
   async listByStudentAndCourse(req: Request, res: Response) {
     const courseId = getStringParam(req, res, 'courseId');
@@ -275,8 +260,7 @@ export const gradeEntriesController = {
     res.json({
       student: {
         id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
+        fullName: student.fullName,
       },
       entries: entries.map((e) => ({
         id: e.id,

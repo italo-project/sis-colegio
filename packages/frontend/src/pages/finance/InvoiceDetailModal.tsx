@@ -49,7 +49,7 @@ export const InvoiceDetailModal = ({ open, onClose, invoiceId }: Props) => {
             <div>
               <div className="text-xs text-gray-500">Estudiante</div>
               <div className="font-medium text-gray-900">
-                {invoice.student?.lastName}, {invoice.student?.firstName}
+                {invoice.student?.fullName ?? '—'}
               </div>
               <div className="text-xs text-gray-500">DNI {invoice.student?.dni}</div>
             </div>

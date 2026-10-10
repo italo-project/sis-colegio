@@ -168,4 +168,32 @@ export const adminApi = {
     return data;
   },
 
+    async resetAllData(confirmation: string) {
+    const { data } = await apiClient.post<{
+      ok: boolean;
+      message: string;
+      deletedOrganizations: number;
+      droppedSchemas: string[];
+    }>('/admin/reset-all-data', { confirmation });
+    return data;
+  },
+
+    async seedDemo() {
+    const { data } = await apiClient.post<{
+      ok: true;
+      organization: { id: string; name: string; subdomain: string };
+      credentials: {
+        ceo: { email: string; password: string };
+      };
+      summary: {
+        teachers: number;
+        students: number;
+        sections: number;
+        subjects: number;
+        courses: number;
+      };
+    }>('/admin/seed-demo');
+    return data;
+  },
+
 };

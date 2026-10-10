@@ -66,7 +66,7 @@ export const ParentDashboardPage = () => {
                 >
                   <div>
                     <div className="font-medium text-gray-900">
-                      {child.lastName}, {child.firstName}
+                      {child.fullName}
                     </div>
                     <div className="text-xs text-gray-500">
                       DNI {child.dni} · {child.relationship}

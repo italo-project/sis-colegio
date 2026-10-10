@@ -6,10 +6,11 @@ import type {
   EvaluationSheet,
   GradeCategory,
   StudentGradesReport,
+  StudentFullReport,
 } from '@/types/grades';
 
 export const gradesApi = {
-  // ── Categorías ───────────────────────────────────────────
+  // ── Categorías ─────────────────────────────────────────
   async listCategories(courseId: string) {
     const { data } = await apiClient.get<{ items: GradeCategory[]; total: number }>(
       `/grades/courses/${courseId}/grade-categories`,
@@ -38,7 +39,7 @@ export const gradesApi = {
     return data;
   },
 
-  // ── Evaluaciones ─────────────────────────────────────────
+  // ── Evaluaciones ───────────────────────────────────────
   async listEvaluationsByCourse(courseId: string) {
     const { data } = await apiClient.get<{ items: Evaluation[]; total: number }>(
       `/grades/courses/${courseId}/evaluations`,
@@ -64,7 +65,7 @@ export const gradesApi = {
     return data;
   },
 
-  // ── Planilla y notas ─────────────────────────────────────
+  // ── Planilla y notas ───────────────────────────────────
   async getEvaluationSheet(evaluationId: string) {
     const { data } = await apiClient.get<EvaluationSheet>(
       `/grades/evaluations/${evaluationId}/grades`,
@@ -98,6 +99,14 @@ export const gradesApi = {
   async getStudentGrades(courseId: string, studentId: string) {
     const { data } = await apiClient.get<StudentGradesReport>(
       `/grades/courses/${courseId}/students/${studentId}/grades`,
+    );
+    return data;
+  },
+
+  // ── Reporte completo de un estudiante (para CEO) ───────
+  async getStudentReport(studentId: string) {
+    const { data } = await apiClient.get<StudentFullReport>(
+      `/grades/students/${studentId}/report`,
     );
     return data;
   },

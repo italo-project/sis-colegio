@@ -89,3 +89,10 @@ gradesRouter.get(
   requireRole('ceo', 'docente'),
   gradeEntriesController.listByStudentAndCourse,
 );
+
+// ── Reporte completo de un estudiante (para CEO) ────────────
+gradesRouter.get(
+  '/students/:studentId/report',
+  requireRole('ceo', 'docente'),
+  gradesController.getStudentReport,
+);

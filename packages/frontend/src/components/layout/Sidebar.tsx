@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { UserCircle } from 'lucide-react';
+import { UserCircle, Trophy } from 'lucide-react';
 import {
   LayoutDashboard,
   Users,
@@ -33,7 +33,7 @@ const menuItems: MenuItem[] = [
     roles: ['ceo', 'docente', 'estudiante', 'padre'],
   },
 
-  // CEO
+  // ── CEO ────────────────────────────────────────────────────
   {
     to: '/students',
     label: 'Estudiantes',
@@ -77,6 +77,12 @@ const menuItems: MenuItem[] = [
     roles: ['ceo'],
   },
   {
+    to: '/my-sections',
+    label: 'Asistencias',
+    icon: CalendarCheck,
+    roles: ['ceo'],
+  },
+  {
     to: '/finance',
     label: 'Finanzas',
     icon: DollarSign,
@@ -94,19 +100,25 @@ const menuItems: MenuItem[] = [
     icon: Receipt,
     roles: ['ceo'],
   },
+  {
+    to: '/close-year',
+    label: 'Cierre de Año',
+    icon: Trophy,
+    roles: ['ceo'],
+  },
 
-  // Docente
+  // ── Docente ────────────────────────────────────────────────
   {
     to: '/my-courses',
     label: 'Mis cursos',
     icon: BookOpen,
     roles: ['docente'],
   },
-    {
+  {
     to: '/my-sections',
     label: 'Asistencias',
     icon: CalendarCheck,
-    roles: ['ceo', 'docente'],
+    roles: ['docente'],
   },
   {
     to: '/students',
@@ -115,7 +127,7 @@ const menuItems: MenuItem[] = [
     roles: ['docente'],
   },
 
-  // Estudiante
+  // ── Estudiante ─────────────────────────────────────────────
   {
     to: '/my-grades',
     label: 'Mis notas',
@@ -135,7 +147,7 @@ const menuItems: MenuItem[] = [
     roles: ['estudiante'],
   },
 
-  // Padre
+  // ── Padre ──────────────────────────────────────────────────
   {
     to: '/my-children',
     label: 'Mis hijos',
@@ -148,7 +160,9 @@ const menuItems: MenuItem[] = [
     icon: Receipt,
     roles: ['padre'],
   },
-    {
+
+  // ── Todos ──────────────────────────────────────────────────
+  {
     to: '/my-profile',
     label: 'Mi perfil',
     icon: UserCircle,

@@ -101,7 +101,7 @@ export const MyPaymentsPage = () => {
                 {items.map((inv) => (
                   <tr key={inv.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">
-                      {inv.student?.firstName} {inv.student?.lastName}
+                      {inv.student?.fullName}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{inv.feeConcept?.name}</td>
                     <td className="px-4 py-3 text-gray-600">{inv.period ?? '—'}</td>

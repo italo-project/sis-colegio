@@ -92,8 +92,7 @@ export const reportsController = {
     res.json({
       student: {
         id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
+        fullName: student.fullName,
         dni: student.dni,
       },
       ...statement,
@@ -115,12 +114,10 @@ export const reportsController = {
       parsed.data,
     );
 
-    // Construir CSV
     const headers = [
       'invoice_id',
       'student_dni',
-      'student_last_name',
-      'student_first_name',
+      'student_full_name',
       'concept_code',
       'concept_name',
       'period',
@@ -152,8 +149,7 @@ export const reportsController = {
         [
           escapeCsv(r.invoiceId),
           escapeCsv(r.studentDni),
-          escapeCsv(r.studentLastName),
-          escapeCsv(r.studentFirstName),
+          escapeCsv(r.studentFullName),
           escapeCsv(r.conceptCode),
           escapeCsv(r.conceptName),
           escapeCsv(r.period),
@@ -171,6 +167,6 @@ export const reportsController = {
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send('\uFEFF' + csv); // BOM para que Excel detecte UTF-8
+    res.send('\uFEFF' + csv);
   },
 };

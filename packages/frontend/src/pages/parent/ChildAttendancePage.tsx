@@ -45,7 +45,7 @@ export const ChildAttendancePage = () => {
           Mis hijos
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">
-          Asistencia de {data.student.firstName} {data.student.lastName}
+          Asistencia de {data.student.fullName}
         </h1>
         <p className="text-sm text-gray-500 mt-1">Historial del año escolar</p>
       </div>

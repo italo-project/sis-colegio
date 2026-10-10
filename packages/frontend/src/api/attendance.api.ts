@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import type {
   AttendanceSession,
   AttendanceSheet,
+  BulkRecordsResponse,
   CreateAttendanceSessionPayload,
 } from '@/types/grades';
 
@@ -32,13 +33,18 @@ export const attendanceApi = {
     return data;
   },
 
+  /**
+   * Guarda los registros de asistencia.
+   * @param saveMode 'draft' = guardar temporal | 'final' = cerrar sesión
+   */
   async bulkRecords(
     sessionId: string,
     records: Array<{ studentId: string; status: string; notes?: string }>,
+    saveMode: 'draft' | 'final' = 'draft',
   ) {
-    const { data } = await apiClient.post(
+    const { data } = await apiClient.post<BulkRecordsResponse>(
       `/attendance/sessions/${sessionId}/records/bulk`,
-      { records },
+      { records, saveMode },
     );
     return data;
   },

@@ -9,6 +9,7 @@ import { AssignTutorModal } from './AssignTutorModal.tsx';
 import { getErrorMessage } from '@/api/client';
 import { Link } from 'react-router-dom';
 import { CalendarCheck } from 'lucide-react';
+import { BulkCreateSectionsModal } from './BulkCreateSectionsModal';
 import type { Section } from '@/types/section';
 
 export const SectionsListPage = () => {
@@ -16,6 +17,7 @@ export const SectionsListPage = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterValue>('active');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Section | null>(null);
   const [tutorFor, setTutorFor] = useState<Section | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -141,9 +143,18 @@ export const SectionsListPage = () => {
             {filteredSections.length === 1 ? '' : 's'}
           </p>
         </div>
-        <Button onClick={handleCreate} icon={<Plus className="w-4 h-4" />}>
-          Nueva sección
-        </Button>
+        <div className="flex gap-2">
+  <Button
+    variant="secondary"
+    onClick={handleCreate}
+    icon={<Plus className="w-4 h-4" />}
+  >
+    Crear una
+  </Button>
+  <Button onClick={() => setIsBulkOpen(true)} icon={<Plus className="w-4 h-4" />}>
+    Crear varias
+  </Button>
+</div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200">
@@ -308,6 +319,14 @@ export const SectionsListPage = () => {
           setTutorFor(null);
         }}
       />
+      <BulkCreateSectionsModal
+  open={isBulkOpen}
+  onClose={() => setIsBulkOpen(false)}
+  onSuccess={() => {
+    queryClient.invalidateQueries({ queryKey: ['sections'] });
+    setToast({ type: 'success', msg: 'Secciones creadas' });
+  }}
+/>
     </div>
   );
 };

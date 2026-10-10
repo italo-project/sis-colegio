@@ -8,10 +8,16 @@ export const studentsRouter = Router();
 
 studentsRouter.use(resolveTenant, requireAuth);
 
+// Rutas específicas PRIMERO (antes de /:id)
+studentsRouter.post('/bulk', requireRole('ceo'), studentsController.bulkCreate);
+
+// Listado y consulta
 studentsRouter.get('/', requireRole('ceo', 'docente'), studentsController.list);
 studentsRouter.get('/:id', requireRole('ceo', 'docente'), studentsController.getById);
 studentsRouter.get('/:id/courses', requireRole('ceo', 'docente'), studentsController.getCourses);
 studentsRouter.get('/:id/parents', requireRole('ceo', 'docente'), studentsController.getParents);
+
+// Mutaciones
 studentsRouter.post('/', requireRole('ceo'), studentsController.create);
 studentsRouter.patch('/:id', requireRole('ceo'), studentsController.update);
 studentsRouter.delete('/:id', requireRole('ceo'), studentsController.deactivate);
@@ -19,3 +25,7 @@ studentsRouter.post('/:id/reactivate', requireRole('ceo'), studentsController.re
 studentsRouter.delete('/:id/hard', requireRole('ceo'), studentsController.hardDelete);
 studentsRouter.post('/:id/create-account', requireRole('ceo'), studentsController.createAccount);
 studentsRouter.post('/:id/reset-password', requireRole('ceo'), studentsController.resetPassword);
+
+// Cambio de sección + historial
+studentsRouter.post('/:id/change-section', requireRole('ceo'), studentsController.changeSection);
+studentsRouter.get('/:id/section-history', requireRole('ceo', 'docente'), studentsController.getSectionHistory);

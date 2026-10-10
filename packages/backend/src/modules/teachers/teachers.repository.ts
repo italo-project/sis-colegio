@@ -227,9 +227,6 @@ export const teachersRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
-  /**
-   * Calcula las horas totales semanales sumando weekly_hours de sus cursos activos.
-   */
   async getWeeklyHoursTotal(schemaName: string, teacherId: string) {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<Array<{ total: bigint }>>(

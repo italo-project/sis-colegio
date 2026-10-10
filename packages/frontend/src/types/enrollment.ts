@@ -8,21 +8,26 @@ export type Enrollment = {
   createdAt: string;
   updatedAt: string;
 
-  // Expandido
   student: {
     id: string;
-    firstName: string;
-    lastName: string;
+    fullName: string;
     dni: string;
     email: string | null;
   };
   course: {
     id: string;
     academicYear: { id: string; year: number };
-    section: { id: string; name: string };
-    gradeLevel: { code: string; name: string; level: string };
+    section: {
+      id: string;
+      name: string;
+      gradeLevel: { id: string; code: string; name: string; level: string };
+    };
+    gradeLevel: { id: string; code: string; name: string; level: string };
     subject: { id: string; code: string; name: string };
-    teacher: { id: string; firstName: string; lastName: string };
+    teacher: {
+      id: string;
+      fullName: string;
+    } | null;
   };
 };
 
@@ -39,6 +44,31 @@ export type CreateEnrollmentPayload = {
 
 export type BulkEnrollPayload = {
   courseId: string;
-  sectionId: string; // sección de la que se matricularán todos los estudiantes
+  sectionId: string;
   notes?: string;
+};
+
+export type AutoEnrollSectionPayload = {
+  sectionId: string;
+  studentIds: string[];
+};
+
+export type AutoEnrollSectionResponse = {
+  studentsProcessed: number;
+  enrollmentsCreated: number;
+  enrollmentsSkipped: number;
+  enrollmentsErrors: number;
+  details: Array<{
+    studentId: string;
+    created: number;
+    skipped: number;
+    errors: number;
+  }>;
+};
+
+export type AvailableStudent = {
+  id: string;
+  fullName: string;
+  dni: string;
+  email: string | null;
 };

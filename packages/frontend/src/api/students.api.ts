@@ -1,7 +1,13 @@
 import { apiClient } from './client';
 import type {
+  BulkCreateStudentsPayload,
+  BulkCreateStudentsResponse,
+  ChangeSectionPayload,
+  ChangeSectionResponse,
   CreateAccountPayload,
   CreateStudentPayload,
+  CreateStudentResponse,
+  SectionHistoryResponse,
   Student,
   StudentsListResponse,
   UpdateStudentPayload,
@@ -19,7 +25,15 @@ export const studentsApi = {
   },
 
   async create(payload: CreateStudentPayload) {
-    const { data } = await apiClient.post<Student>('/students', payload);
+    const { data } = await apiClient.post<CreateStudentResponse>('/students', payload);
+    return data;
+  },
+
+  async bulkCreate(payload: BulkCreateStudentsPayload) {
+    const { data } = await apiClient.post<BulkCreateStudentsResponse>(
+      '/students/bulk',
+      payload,
+    );
     return data;
   },
 
@@ -50,6 +64,28 @@ export const studentsApi = {
 
   async getCourses(id: string) {
     const { data } = await apiClient.get(`/students/${id}/courses`);
+    return data;
+  },
+
+  async getParents(id: string) {
+    const { data } = await apiClient.get(`/students/${id}/parents`);
+    return data;
+  },
+
+  // ── Cambio de sección ─────────────────────────────────────────────────
+  async changeSection(id: string, payload: ChangeSectionPayload) {
+    const { data } = await apiClient.post<ChangeSectionResponse>(
+      `/students/${id}/change-section`,
+      payload,
+    );
+    return data;
+  },
+
+  // ── Historial de secciones ────────────────────────────────────────────
+  async getSectionHistory(id: string) {
+    const { data } = await apiClient.get<SectionHistoryResponse>(
+      `/students/${id}/section-history`,
+    );
     return data;
   },
 };

@@ -91,33 +91,43 @@ export const parentsRepository = {
     const conditions: string[] = [];
     const params: unknown[] = [];
 
-    if (query.active === 'true') conditions.push('is_active = true');
-    if (query.active === 'false') conditions.push('is_active = false');
+    if (query.active === 'true') conditions.push('p.is_active = true');
+    if (query.active === 'false') conditions.push('p.is_active = false');
 
     if (query.q) {
       params.push(`%${query.q.toLowerCase()}%`);
       conditions.push(
-        `(LOWER(full_name) LIKE $${params.length} OR dni LIKE $${params.length} OR LOWER(email) LIKE $${params.length})`,
+        `(LOWER(p.full_name) LIKE $${params.length} OR p.dni LIKE $${params.length} OR LOWER(p.email) LIKE $${params.length})`,
       );
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     params.push(query.limit, query.offset);
 
-    const rows = await prisma.$queryRawUnsafe<ParentRow[]>(
-      `SELECT * FROM "${schemaName}".parents ${where}
-       ORDER BY full_name ASC
+    const rows = await prisma.$queryRawUnsafe<
+      Array<ParentRow & { children_count: bigint }>
+    >(
+      `SELECT
+         p.*,
+         (SELECT COUNT(*) FROM "${schemaName}".student_parents sp
+          WHERE sp.parent_id = p.id)::bigint AS children_count
+       FROM "${schemaName}".parents p
+       ${where}
+       ORDER BY p.full_name ASC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       ...params,
     );
 
     const countRows = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
-      `SELECT COUNT(*)::bigint as count FROM "${schemaName}".parents ${where}`,
+      `SELECT COUNT(*)::bigint as count FROM "${schemaName}".parents p ${where}`,
       ...params.slice(0, params.length - 2),
     );
 
     return {
-      items: rows.map(toApi),
+      items: rows.map((r) => ({
+        ...toApi(r),
+        childrenCount: Number(r.children_count),
+      })),
       total: Number(countRows[0].count),
     };
   },

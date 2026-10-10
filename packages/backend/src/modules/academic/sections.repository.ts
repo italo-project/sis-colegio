@@ -108,6 +108,99 @@ export const sectionsRepository = {
     return toApi(rows[0]);
   },
 
+  async bulkCreate(
+    schemaName: string,
+    input: {
+      academicYearId: string;
+      gradeLevelId: string;
+      capacity?: number;
+      names: string[];
+    },
+  ) {
+    assertSafeSchemaName(schemaName);
+
+    // 1) Duplicados internos (por nombre)
+    const nameSet = new Set<string>();
+    const internalDupes: Array<{ row: number; value: string }> = [];
+    input.names.forEach((n, idx) => {
+      const trimmed = n.trim().toUpperCase();
+      if (nameSet.has(trimmed)) {
+        internalDupes.push({ row: idx + 1, value: n });
+      } else {
+        nameSet.add(trimmed);
+      }
+    });
+    if (internalDupes.length > 0) {
+      return {
+        error: 'Hay nombres duplicados dentro del formulario',
+        duplicates: internalDupes,
+      };
+    }
+
+    // 2) Validar año escolar
+    const yearRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM "${schemaName}".academic_years WHERE id = $1::uuid LIMIT 1`,
+      input.academicYearId,
+    );
+    if (!yearRows[0]) {
+      return { error: 'Año escolar no encontrado' };
+    }
+
+    // 3) Validar grado
+    const gradeRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM "${schemaName}".grade_levels WHERE id = $1::uuid AND is_active = true LIMIT 1`,
+      input.gradeLevelId,
+    );
+    if (!gradeRows[0]) {
+      return { error: 'Grado no encontrado o inactivo' };
+    }
+
+    // 4) Verificar conflictos vs BD (mismo año + grado + nombre)
+    const existingSections = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+      `SELECT name FROM "${schemaName}".sections
+        WHERE academic_year_id = $1::uuid
+          AND grade_level_id = $2::uuid
+          AND UPPER(name) = ANY($3::varchar[])`,
+      input.academicYearId,
+      input.gradeLevelId,
+      [...nameSet],
+    );
+    const existingNames = new Set(existingSections.map((s) => s.name.toUpperCase()));
+
+    const conflicts = input.names
+      .map((name, idx) => ({ row: idx + 1, value: name }))
+      .filter(({ value }) => existingNames.has(value.trim().toUpperCase()));
+
+    if (conflicts.length > 0) {
+      return {
+        error: 'Algunas secciones ya existen para ese grado y año',
+        conflicts,
+      };
+    }
+
+    // 5) Crear todas
+    const created: Array<{ id: string; name: string }> = [];
+
+    for (const name of input.names) {
+      const rows = await prisma.$queryRawUnsafe<Array<{ id: string; name: string }>>(
+        `INSERT INTO "${schemaName}".sections
+           (academic_year_id, grade_level_id, name, capacity)
+         VALUES ($1::uuid, $2::uuid, $3, $4)
+         RETURNING id, name`,
+        input.academicYearId,
+        input.gradeLevelId,
+        name.trim().toUpperCase(),
+        input.capacity ?? null,
+      );
+      created.push({ id: rows[0].id, name: rows[0].name });
+    }
+
+    return {
+      created: created.length,
+      sections: created,
+    };
+  },
+
   async update(schemaName: string, id: string, input: UpdateSectionInput) {
     assertSafeSchemaName(schemaName);
     const fields: string[] = [];
@@ -142,7 +235,8 @@ export const sectionsRepository = {
     );
     return rows[0] ? toApi(rows[0]) : null;
   },
-    async assignTutor(schemaName: string, sectionId: string, tutorUserId: string | null) {
+
+  async assignTutor(schemaName: string, sectionId: string, tutorUserId: string | null) {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<SectionRow[]>(
       `UPDATE "${schemaName}".sections
@@ -154,6 +248,7 @@ export const sectionsRepository = {
     );
     return rows[0] ? toApi(rows[0]) : null;
   },
+
   async reactivate(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<SectionRow[]>(
@@ -165,9 +260,6 @@ export const sectionsRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
-  /**
-   * Cuenta cuántos datos relacionados tiene una sección.
-   */
   async countRelatedData(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
 
@@ -206,9 +298,7 @@ export const sectionsRepository = {
     );
     return rows[0] ? toApi(rows[0]) : null;
   },
-    /**
-   * Detalle completo de una sección: grado, año, tutor y estadísticas.
-   */
+
   async getDetail(schemaName: string, id: string) {
     assertSafeSchemaName(schemaName);
 
@@ -249,10 +339,9 @@ export const sectionsRepository = {
          s.is_active,
          s.created_at,
          s.updated_at,
-         (SELECT COUNT(DISTINCT e.student_id)::bigint
-          FROM "${schemaName}".enrollments e
-          JOIN "${schemaName}".courses c ON c.id = e.course_id
-          WHERE c.section_id = s.id AND e.status = 'active') AS students_count,
+         (SELECT COUNT(*)::bigint
+          FROM "${schemaName}".students st
+          WHERE st.section_id = s.id AND st.is_active = true) AS students_count,
          (SELECT COUNT(*)::bigint
           FROM "${schemaName}".courses c
           WHERE c.section_id = s.id AND c.is_active = true) AS courses_count
@@ -295,15 +384,14 @@ export const sectionsRepository = {
   },
 
   /**
-   * Alumnos de la sección (únicos).
+   * Alumnos de la sección (fuente de verdad: students.section_id).
    */
   async listStudents(schemaName: string, sectionId: string) {
     assertSafeSchemaName(schemaName);
     const rows = await prisma.$queryRawUnsafe<
       Array<{
         id: string;
-        first_name: string;
-        last_name: string;
+        full_name: string;
         dni: string;
         email: string | null;
         phone: string | null;
@@ -311,26 +399,22 @@ export const sectionsRepository = {
         is_active: boolean;
       }>
     >(
-      `SELECT DISTINCT
+      `SELECT
          s.id,
-         s.first_name,
-         s.last_name,
+         s.full_name,
          s.dni,
          s.email,
          s.phone,
          (s.user_id IS NOT NULL) AS has_account,
          s.is_active
        FROM "${schemaName}".students s
-       JOIN "${schemaName}".enrollments e ON e.student_id = s.id AND e.status = 'active'
-       JOIN "${schemaName}".courses c ON c.id = e.course_id
-       WHERE c.section_id = $1::uuid
-       ORDER BY s.last_name ASC, s.first_name ASC`,
+       WHERE s.section_id = $1::uuid
+       ORDER BY s.full_name ASC`,
       sectionId,
     );
     return rows.map((r) => ({
       id: r.id,
-      firstName: r.first_name,
-      lastName: r.last_name,
+      fullName: r.full_name,
       dni: r.dni,
       email: r.email,
       phone: r.phone,
@@ -351,9 +435,8 @@ export const sectionsRepository = {
         subject_code: string;
         subject_name: string;
         subject_area: string | null;
-        teacher_id: string;
-        teacher_first_name: string;
-        teacher_last_name: string;
+        teacher_id: string | null;
+        teacher_full_name: string | null;
         weekly_hours: number | null;
         is_active: boolean;
         students_count: bigint;
@@ -366,15 +449,14 @@ export const sectionsRepository = {
          sub.name AS subject_name,
          sub.area AS subject_area,
          c.teacher_id,
-         t.first_name AS teacher_first_name,
-         t.last_name AS teacher_last_name,
+         t.full_name AS teacher_full_name,
          c.weekly_hours,
          c.is_active,
          (SELECT COUNT(*)::bigint FROM "${schemaName}".enrollments e
           WHERE e.course_id = c.id AND e.status = 'active') AS students_count
        FROM "${schemaName}".courses c
        JOIN "${schemaName}".subjects sub ON sub.id = c.subject_id
-       JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
+       LEFT JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
        WHERE c.section_id = $1::uuid
        ORDER BY sub.name ASC`,
       sectionId,
@@ -387,11 +469,12 @@ export const sectionsRepository = {
         name: r.subject_name,
         area: r.subject_area,
       },
-      teacher: {
-        id: r.teacher_id,
-        firstName: r.teacher_first_name,
-        lastName: r.teacher_last_name,
-      },
+      teacher: r.teacher_id
+        ? {
+            id: r.teacher_id,
+            fullName: r.teacher_full_name ?? '',
+          }
+        : null,
       weeklyHours: r.weekly_hours,
       isActive: r.is_active,
       studentsCount: Number(r.students_count),

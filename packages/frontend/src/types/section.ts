@@ -9,7 +9,6 @@ export type Section = {
   createdAt: string;
   updatedAt: string;
 
-  // Datos expandidos (siempre vienen en list)
   gradeLevel?: {
     id: string;
     code: string;
@@ -21,7 +20,6 @@ export type Section = {
     year: number;
   };
 
-  // Solo en getById
   canBeDeleted?: boolean;
   relatedDataCount?: number;
   relatedBreakdown?: {
@@ -87,8 +85,7 @@ export type SectionDetail = {
 
 export type SectionStudent = {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
   email: string | null;
   phone: string | null;
@@ -100,8 +97,20 @@ export type SectionCourse = {
   id: string;
   subjectId: string;
   subject: { code: string; name: string; area: string | null };
-  teacher: { id: string; firstName: string; lastName: string };
+  teacher: { id: string; fullName: string } | null;
   weeklyHours: number | null;
   isActive: boolean;
   studentsCount: number;
+};
+
+export type BulkCreateSectionsPayload = {
+  academicYearId: string;
+  gradeLevelId: string;
+  capacity?: number;
+  names: string[];
+};
+
+export type BulkCreateSectionsResponse = {
+  created: number;
+  sections: Array<{ id: string; name: string }>;
 };

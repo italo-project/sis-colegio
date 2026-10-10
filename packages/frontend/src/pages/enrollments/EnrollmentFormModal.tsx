@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/SearchableSelect';
 import { enrollmentsApi } from '@/api/enrollments.api';
-import { coursesApi } from '@/api/courses.api';
+import type { Course } from '@/types/course';
 import { apiClient, getErrorMessage } from '@/api/client';
 import { formatCourse } from '@/lib/format';
 import type { CreateEnrollmentPayload } from '@/types/enrollment';
@@ -17,8 +18,7 @@ type Props = {
 
 type Student = {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   dni: string;
 };
 
@@ -27,6 +27,8 @@ export const EnrollmentFormModal = ({ open, onClose, onSuccess }: Props) => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateEnrollmentPayload>();
 
@@ -34,7 +36,7 @@ export const EnrollmentFormModal = ({ open, onClose, onSuccess }: Props) => {
     queryKey: ['students-for-enroll'],
     queryFn: async () => {
       const { data } = await apiClient.get<{ items: Student[] }>('/students', {
-        params: { active: 'true', limit: 200 },
+        params: { active: 'true', limit: 1000 },
       });
       return data.items;
     },
@@ -43,9 +45,42 @@ export const EnrollmentFormModal = ({ open, onClose, onSuccess }: Props) => {
 
   const { data: courses } = useQuery({
     queryKey: ['courses-for-enroll'],
-    queryFn: () => coursesApi.list({ active: 'true', limit: 200, offset: 0 }),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ items: Course[]; total: number }>('/courses', {
+        params: { active: 'true', limit: 1000, offset: 0 },
+      });
+      return data;
+    },
     enabled: open,
   });
+
+  // Convertir a opciones de SearchableSelect
+  const studentOptions: SearchableOption[] = useMemo(
+    () =>
+      (students ?? []).map((s) => ({
+        value: s.id,
+        label: s.fullName,
+        keywords: s.dni,
+      })),
+    [students],
+  );
+
+  const courseOptions: SearchableOption[] = useMemo(
+    () =>
+      (courses?.items ?? []).map((c) => ({
+        value: c.id,
+        label: formatCourse({
+          subject: c.subject,
+          section: c.section,
+          academicYear: c.academicYear,
+        }),
+        keywords: `${c.subject.code} ${c.section.gradeLevel?.name ?? ''} ${c.section.name}`,
+      })),
+    [courses],
+  );
+
+  const studentId = watch('studentId') ?? '';
+  const courseId = watch('courseId') ?? '';
 
   useEffect(() => {
     if (open) reset({});
@@ -83,38 +118,36 @@ export const EnrollmentFormModal = ({ open, onClose, onSuccess }: Props) => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Estudiante *</label>
-          <select
+          <SearchableSelect
+            options={studentOptions}
+            value={studentId}
+            onChange={(val) => setValue('studentId', val, { shouldValidate: true })}
+            placeholder="Buscar estudiante..."
+            searchPlaceholder="Escribe nombre o DNI..."
+            emptyMessage="No hay estudiantes que coincidan"
+            error={errors.studentId?.message}
+          />
+          <input
+            type="hidden"
             {...register('studentId', { required: 'Requerido' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          >
-            <option value="">Selecciona...</option>
-            {students?.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.lastName}, {s.firstName} — DNI {s.dni}
-              </option>
-            ))}
-          </select>
-          {errors.studentId && (
-            <p className="text-xs text-red-600 mt-1">{errors.studentId.message}</p>
-          )}
+          />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Curso *</label>
-          <select
+          <SearchableSelect
+            options={courseOptions}
+            value={courseId}
+            onChange={(val) => setValue('courseId', val, { shouldValidate: true })}
+            placeholder="Buscar curso..."
+            searchPlaceholder="Escribe materia, grado o sección..."
+            emptyMessage="No hay cursos que coincidan"
+            error={errors.courseId?.message}
+          />
+          <input
+            type="hidden"
             {...register('courseId', { required: 'Requerido' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-          >
-            <option value="">Selecciona...</option>
-            {courses?.items.map((c) => (
-              <option key={c.id} value={c.id}>
-                {formatCourse(c)}
-              </option>
-            ))}
-          </select>
-          {errors.courseId && (
-            <p className="text-xs text-red-600 mt-1">{errors.courseId.message}</p>
-          )}
+          />
         </div>
 
         <div>

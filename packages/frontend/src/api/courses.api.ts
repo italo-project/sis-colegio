@@ -1,5 +1,7 @@
 import { apiClient } from './client';
 import type {
+  AutoGenerateCoursesPayload,
+  AutoGenerateCoursesResponse,
   Course,
   CoursesListResponse,
   CreateCoursePayload,
@@ -56,4 +58,12 @@ export const coursesApi = {
     const { data } = await apiClient.get(`/courses/${id}/students`);
     return data;
   },
+    async autoGenerate(payload: AutoGenerateCoursesPayload) {
+    const { data } = await apiClient.post<AutoGenerateCoursesResponse>(
+      '/courses/auto-generate',
+      payload,
+    );
+    return data;
+  },
+
 };

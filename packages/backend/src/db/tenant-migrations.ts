@@ -95,7 +95,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_sections_grade ON sections(grade_level_id)`,
     ],
   },
-    {
+  {
     id: '006_teachers',
     description: 'Docentes vinculados a usuarios globales',
     statements: [
@@ -139,7 +139,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_subjects_active ON subjects(is_active) WHERE is_active = true`,
     ],
   },
-    {
+  {
     id: '008_courses',
     description: 'Cursos: asignatura + sección + año + docente',
     statements: [
@@ -162,7 +162,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_courses_active ON courses(is_active) WHERE is_active = true`,
     ],
   },
-    {
+  {
     id: '009_enrollments',
     description: 'Matrículas de estudiantes en cursos',
     statements: [
@@ -183,7 +183,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_enrollments_status ON enrollments(status) WHERE status = 'active'`,
     ],
   },
-    {
+  {
     id: '010_students_user_id',
     description: 'Vinculación de estudiantes a cuentas de usuario',
     statements: [
@@ -191,7 +191,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE UNIQUE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id) WHERE user_id IS NOT NULL`,
     ],
   },
-    {
+  {
     id: '011_parents',
     description: 'Padres/tutores con cuenta de usuario',
     statements: [
@@ -215,7 +215,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_parents_active ON parents(is_active) WHERE is_active = true`,
     ],
   },
-    {
+  {
     id: '012_student_parents',
     description: 'Vinculación N:M entre estudiantes y padres/tutores',
     statements: [
@@ -236,7 +236,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_student_parents_primary ON student_parents(student_id, is_primary) WHERE is_primary = true`,
     ],
   },
-    {
+  {
     id: '013_grade_categories',
     description: 'Categorías de evaluación por curso',
     statements: [
@@ -279,7 +279,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_evaluations_active ON evaluations(category_id, is_active) WHERE is_active = true`,
     ],
   },
-    {
+  {
     id: '015_grade_entries',
     description: 'Notas por estudiante y evaluación',
     statements: [
@@ -299,7 +299,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_grade_entries_student ON grade_entries(student_id)`,
     ],
   },
-    {
+  {
     id: '016_add_section_tutor',
     description: 'Docente tutor por sección',
     statements: [
@@ -348,7 +348,7 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_attendance_records_status ON attendance_records(student_id, status)`,
     ],
   },
-    {
+  {
     id: '019_fee_concepts',
     description: 'Conceptos de cobro por colegio',
     statements: [
@@ -437,14 +437,10 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `CREATE INDEX IF NOT EXISTS idx_payments_gateway_tx ON payments(gateway_tx_id) WHERE gateway_tx_id IS NOT NULL`,
     ],
   },
-    {
+  {
     id: '023_organization_mp_fields',
     description: 'Campos de integración con Mercado Pago en organizations (esquema público)',
     statements: [
-      // Las columnas viven en el esquema público, no en el del tenant,
-      // pero las incluimos aquí para que la migración sea parte del flujo estándar.
-      // El servicio de migraciones ejecuta esto una vez por cada colegio,
-      // pero las cláusulas IF NOT EXISTS hacen que sea idempotente.
       `ALTER TABLE IF EXISTS public.organizations ADD COLUMN IF NOT EXISTS mp_user_id VARCHAR(50)`,
       `ALTER TABLE IF EXISTS public.organizations ADD COLUMN IF NOT EXISTS mp_access_token TEXT`,
       `ALTER TABLE IF EXISTS public.organizations ADD COLUMN IF NOT EXISTS mp_refresh_token TEXT`,
@@ -453,4 +449,177 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
       `ALTER TABLE IF EXISTS public.organizations ADD COLUMN IF NOT EXISTS mp_expires_at TIMESTAMPTZ`,
     ],
   },
+  {
+    id: '024_students_full_name_section',
+    description: 'Fase A.3: full_name, section_id, limpieza de legacy en students',
+    statements: [
+      `ALTER TABLE students ADD COLUMN IF NOT EXISTS full_name VARCHAR(200)`,
+      `ALTER TABLE students ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES sections(id) ON DELETE SET NULL`,
+      `UPDATE students
+         SET full_name = TRIM(CONCAT(first_name, ' ', last_name))
+         WHERE full_name IS NULL AND first_name IS NOT NULL`,
+      `ALTER TABLE students ALTER COLUMN full_name SET NOT NULL`,
+      `ALTER TABLE students DROP COLUMN IF EXISTS first_name`,
+      `ALTER TABLE students DROP COLUMN IF EXISTS last_name`,
+      `ALTER TABLE students DROP COLUMN IF EXISTS guardian_name`,
+      `ALTER TABLE students DROP COLUMN IF EXISTS guardian_phone`,
+      `CREATE INDEX IF NOT EXISTS idx_students_section ON students(section_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_students_full_name ON students(full_name)`,
+    ],
+  },
+  {
+    id: '025_add_attendance_is_final',
+    description: 'Fase D: columna is_final en attendance_sessions',
+    statements: [
+      `ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS is_final BOOLEAN NOT NULL DEFAULT false`,
+    ],
+  },
+  {
+    id: '026_student_year_end_status',
+    description: 'Fase E: estado de fin de año por estudiante',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS student_year_end_status (
+        id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id        UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        academic_year_id  UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+        final_average     NUMERIC(5,2),
+        status            VARCHAR(20) NOT NULL
+                          CHECK (status IN ('promoted', 'repeated', 'graduated', 'transferred')),
+        next_section_id   UUID REFERENCES sections(id) ON DELETE SET NULL,
+        notes             TEXT,
+        closed_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+        closed_by         UUID NOT NULL,
+        UNIQUE (student_id, academic_year_id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_syes_student ON student_year_end_status(student_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_syes_year ON student_year_end_status(academic_year_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_syes_status ON student_year_end_status(status)`,
+    ],
+  },
+  // ============================================================
+  // ⬇️ NUEVA MIGRACIÓN: teachers → full_name + payment fields
+  // ============================================================
+  {
+    id: '027_teachers_full_name_and_payment',
+    description: 'Migrar teachers a full_name + payment_type/hourly_rate/monthly_salary + address',
+    statements: [
+      // 1. Agregar columnas nuevas (por si no existen)
+      `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS full_name VARCHAR(200)`,
+      `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS address TEXT`,
+      `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS payment_type VARCHAR(20)`,
+      `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS hourly_rate NUMERIC(10,2)`,
+      `ALTER TABLE teachers ADD COLUMN IF NOT EXISTS monthly_salary NUMERIC(10,2)`,
+
+      // 2. Poblar full_name desde first_name + last_name (solo si existen esas columnas)
+      `DO $$
+       BEGIN
+         IF EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema = current_schema()
+             AND table_name = 'teachers'
+             AND column_name = 'first_name'
+         ) THEN
+           UPDATE teachers
+              SET full_name = TRIM(CONCAT(first_name, ' ', COALESCE(last_name, '')))
+            WHERE full_name IS NULL AND first_name IS NOT NULL;
+         END IF;
+       END $$`,
+
+      // 3. Hacer full_name NOT NULL (si ya tiene valores)
+      `DO $$
+       BEGIN
+         IF NOT EXISTS (SELECT 1 FROM teachers WHERE full_name IS NULL) THEN
+           ALTER TABLE teachers ALTER COLUMN full_name SET NOT NULL;
+         END IF;
+       END $$`,
+
+      // 4. Eliminar columnas viejas
+      `ALTER TABLE teachers DROP COLUMN IF EXISTS first_name`,
+      `ALTER TABLE teachers DROP COLUMN IF EXISTS last_name`,
+
+      // 5. Constraint para payment_type
+      `ALTER TABLE teachers DROP CONSTRAINT IF EXISTS teachers_payment_type_check`,
+      `ALTER TABLE teachers
+         ADD CONSTRAINT teachers_payment_type_check
+         CHECK (payment_type IN ('hourly', 'monthly') OR payment_type IS NULL)`,
+
+      // 6. Constraints numéricos
+      `ALTER TABLE teachers DROP CONSTRAINT IF EXISTS teachers_hourly_rate_check`,
+      `ALTER TABLE teachers
+         ADD CONSTRAINT teachers_hourly_rate_check
+         CHECK (hourly_rate IS NULL OR hourly_rate >= 0)`,
+
+      `ALTER TABLE teachers DROP CONSTRAINT IF EXISTS teachers_monthly_salary_check`,
+      `ALTER TABLE teachers
+         ADD CONSTRAINT teachers_monthly_salary_check
+         CHECK (monthly_salary IS NULL OR monthly_salary >= 0)`,
+
+      // 7. Índices nuevos
+      `CREATE INDEX IF NOT EXISTS idx_teachers_full_name ON teachers(full_name)`,
+    ],
+  },
+
+  {
+    id: '028_parents_full_name',
+    description: 'Migrar parents a full_name (unificar first_name + last_name)',
+    statements: [
+      // 1. Agregar columna full_name
+      `ALTER TABLE parents ADD COLUMN IF NOT EXISTS full_name VARCHAR(200)`,
+
+      // 2. Poblar full_name desde first_name + last_name (solo si existen)
+      `DO $$
+       BEGIN
+         IF EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_schema = current_schema()
+             AND table_name = 'parents'
+             AND column_name = 'first_name'
+         ) THEN
+           UPDATE parents
+              SET full_name = TRIM(CONCAT(first_name, ' ', COALESCE(last_name, '')))
+            WHERE full_name IS NULL AND first_name IS NOT NULL;
+         END IF;
+       END $$`,
+
+      // 3. Hacer full_name NOT NULL (solo si todos tienen valor)
+      `DO $$
+       BEGIN
+         IF NOT EXISTS (SELECT 1 FROM parents WHERE full_name IS NULL) THEN
+           ALTER TABLE parents ALTER COLUMN full_name SET NOT NULL;
+         END IF;
+       END $$`,
+
+      // 4. Eliminar columnas viejas
+      `ALTER TABLE parents DROP COLUMN IF EXISTS first_name`,
+      `ALTER TABLE parents DROP COLUMN IF EXISTS last_name`,
+
+      // 5. Índice para búsquedas
+      `CREATE INDEX IF NOT EXISTS idx_parents_full_name ON parents(full_name)`,
+    ],
+  },
+
+    {
+    id: '029_student_section_history',
+    description: 'Historial de secciones de estudiantes (movido de script suelto a migración)',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS student_section_history (
+        id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id        UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        section_id        UUID NOT NULL REFERENCES sections(id) ON DELETE RESTRICT,
+        academic_year_id  UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+        enrolled_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+        left_at           TIMESTAMPTZ,
+        average_at_exit   NUMERIC(5,2),
+        reason            TEXT,
+        created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_ssh_student
+         ON student_section_history(student_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_ssh_section
+         ON student_section_history(section_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_ssh_student_left
+         ON student_section_history(student_id, left_at DESC)`,
+    ],
+  },
+  
 ];

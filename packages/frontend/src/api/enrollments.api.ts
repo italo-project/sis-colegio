@@ -1,5 +1,8 @@
 import { apiClient } from './client';
 import type {
+  AutoEnrollSectionPayload,
+  AutoEnrollSectionResponse,
+  AvailableStudent,
   CreateEnrollmentPayload,
   Enrollment,
   EnrollmentsListResponse,
@@ -44,4 +47,22 @@ export const enrollmentsApi = {
     const { data } = await apiClient.get(`/students/${studentId}/courses`);
     return data;
   },
+
+    async autoEnroll(payload: AutoEnrollSectionPayload) {
+    const { data } = await apiClient.post<AutoEnrollSectionResponse>(
+      '/enrollments/auto',
+      payload,
+    );
+    return data;
+  },
+
+  async availableStudentsForSection(sectionId: string) {
+    const { data } = await apiClient.get<{ items: AvailableStudent[]; total: number }>(
+      '/enrollments/available-students',
+      { params: { sectionId } },
+    );
+    return data;
+  },
+
+
 };

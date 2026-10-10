@@ -181,7 +181,7 @@ export const ParentsListPage = () => {
                   <th className="text-left font-medium px-4 py-3">DNI</th>
                   <th className="text-left font-medium px-4 py-3">Email</th>
                   <th className="text-left font-medium px-4 py-3">Teléfono</th>
-                  <th className="text-left font-medium px-4 py-3">Ocupación</th>
+                  <th className="text-left font-medium px-4 py-3">Hijos</th>
                   <th className="text-left font-medium px-4 py-3">Estado</th>
                   <th className="text-right font-medium px-4 py-3">Acciones</th>
                 </tr>
@@ -195,7 +195,15 @@ export const ParentsListPage = () => {
                     <td className="px-4 py-3 text-gray-600">{parent.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{parent.email}</td>
                     <td className="px-4 py-3 text-gray-600">{parent.phone ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{parent.occupation ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">
+  {parent.childrenCount > 0 ? (
+    <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+      {parent.childrenCount}
+    </span>
+  ) : (
+    <span className="text-gray-400">0</span>
+  )}
+</td>
                     <td className="px-4 py-3">
                       {parent.isActive ? (
                         <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">

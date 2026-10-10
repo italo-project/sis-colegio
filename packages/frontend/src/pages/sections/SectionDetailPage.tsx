@@ -8,17 +8,20 @@ import {
   CalendarCheck,
   UserCog,
   Award,
+  ClipboardList,
 } from 'lucide-react';
 import { sectionsApi } from '@/api/sections.api';
 import { StatCard } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
+import { StudentGradesModal } from './StudentGradesModal';
 
 type Tab = 'students' | 'courses';
 
 export const SectionDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>('students');
+  const [reportFor, setReportFor] = useState<{ id: string; name: string } | null>(null);
 
   const { data: detail, isLoading: isLoadingDetail } = useQuery({
     queryKey: ['section-detail', id],
@@ -158,7 +161,7 @@ export const SectionDetailPage = () => {
                 <div className="p-12 text-center text-gray-500 text-sm">Cargando alumnos...</div>
               ) : !students || students.items.length === 0 ? (
                 <div className="p-12 text-center text-gray-500 text-sm">
-                  Esta sección no tiene alumnos matriculados aún.
+                  Esta sección no tiene alumnos asignados aún.
                 </div>
               ) : (
                 <div className="overflow-x-auto -mx-5 -mb-5">
@@ -171,6 +174,7 @@ export const SectionDetailPage = () => {
                         <th className="text-left font-medium px-5 py-3">Teléfono</th>
                         <th className="text-left font-medium px-5 py-3">Cuenta</th>
                         <th className="text-left font-medium px-5 py-3">Estado</th>
+                        <th className="text-right font-medium px-5 py-3">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -178,13 +182,9 @@ export const SectionDetailPage = () => {
                         <tr key={s.id} className="hover:bg-gray-50">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
-                              <Avatar
-                                src={null}
-                                name={`${s.firstName} ${s.lastName}`}
-                                size="sm"
-                              />
+                              <Avatar src={null} name={s.fullName} size="sm" />
                               <div className="font-medium text-gray-900">
-                                {s.lastName}, {s.firstName}
+                                {s.fullName}
                               </div>
                             </div>
                           </td>
@@ -212,6 +212,16 @@ export const SectionDetailPage = () => {
                                 Inactivo
                               </span>
                             )}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button
+                              onClick={() => setReportFor({ id: s.id, name: s.fullName })}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+                              title="Ver boletín de notas"
+                            >
+                              <ClipboardList className="w-3.5 h-3.5" />
+                              Ver boletín
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -241,6 +251,7 @@ export const SectionDetailPage = () => {
                         <th className="text-left font-medium px-5 py-3">Horas/sem</th>
                         <th className="text-left font-medium px-5 py-3">Alumnos</th>
                         <th className="text-left font-medium px-5 py-3">Estado</th>
+                        <th className="text-right font-medium px-5 py-3">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -256,7 +267,9 @@ export const SectionDetailPage = () => {
                             </div>
                           </td>
                           <td className="px-5 py-3 text-gray-600">
-                            {c.teacher.lastName}, {c.teacher.firstName}
+                            {c.teacher
+                              ? c.teacher.fullName
+                              : <span className="text-yellow-600 text-xs">Sin asignar</span>}
                           </td>
                           <td className="px-5 py-3 text-gray-600">
                             {c.weeklyHours ?? '—'}
@@ -275,6 +288,16 @@ export const SectionDetailPage = () => {
                               </span>
                             )}
                           </td>
+                          <td className="px-5 py-3 text-right">
+                            <Link
+                              to={`/my-courses/${c.id}/grades`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded transition-colors"
+                              title="Ver planilla de notas del curso"
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                              Ver notas
+                            </Link>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -285,6 +308,14 @@ export const SectionDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de boletín del estudiante */}
+      <StudentGradesModal
+        open={!!reportFor}
+        onClose={() => setReportFor(null)}
+        studentId={reportFor?.id ?? null}
+        studentName={reportFor?.name}
+      />
     </div>
   );
 };

@@ -3,7 +3,8 @@ import { feeAmountsRepository } from './finance.repository';
 
 /**
  * Calcula el monto de un concepto para un estudiante específico.
- * - Busca el grade_level del estudiante (a través de su sección/matrícula).
+ * - Obtiene el grade_level del estudiante a través de su sección actual
+ *   (students.section_id → sections.grade_level_id).
  * - Busca el monto específico en fee_amounts.
  * - Si no hay monto específico, usa el default_amount del concepto.
  */
@@ -13,19 +14,17 @@ export const resolveAmountForStudent = async (
   feeConceptId: string,
   defaultAmount: number,
 ): Promise<number> => {
-  // Obtener el grade_level del estudiante a través de su matrícula activa
   const rows = await prisma.$queryRawUnsafe<Array<{ grade_level_id: string }>>(
-    `SELECT DISTINCT s.grade_level_id
-     FROM "${schemaName}".enrollments e
-     JOIN "${schemaName}".courses c ON c.id = e.course_id
-     JOIN "${schemaName}".sections s ON s.id = c.section_id
-     WHERE e.student_id = $1::uuid AND e.status = 'active'
-     LIMIT 1`,
+    `SELECT sec.grade_level_id
+       FROM "${schemaName}".students s
+       JOIN "${schemaName}".sections sec ON sec.id = s.section_id
+      WHERE s.id = $1::uuid
+      LIMIT 1`,
     studentId,
   );
 
   if (!rows[0]) {
-    // Estudiante sin matrícula activa: usar default
+    // Estudiante sin sección asignada: usar default
     return defaultAmount;
   }
 

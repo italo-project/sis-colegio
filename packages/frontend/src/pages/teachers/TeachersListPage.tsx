@@ -192,6 +192,7 @@ export const TeachersListPage = () => {
                   <th className="text-left font-medium px-4 py-3">Nombre completo</th>
                   <th className="text-left font-medium px-4 py-3">DNI</th>
                   <th className="text-left font-medium px-4 py-3">Email</th>
+                  <th className="text-left font-medium px-4 py-3">Teléfono</th>
                   <th className="text-left font-medium px-4 py-3">Especialidad</th>
                   <th className="text-left font-medium px-4 py-3">Pago</th>
                   <th className="text-left font-medium px-4 py-3">Estado</th>
@@ -206,6 +207,7 @@ export const TeachersListPage = () => {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{teacher.dni}</td>
                     <td className="px-4 py-3 text-gray-600">{teacher.email}</td>
+                    <td className="px-4 py-3 text-gray-600">{teacher.phone ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{teacher.specialty ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{formatPayment(teacher)}</td>
                     <td className="px-4 py-3">

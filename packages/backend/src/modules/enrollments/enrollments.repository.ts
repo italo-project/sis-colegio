@@ -17,14 +17,10 @@ type EnrollmentRow = {
   updated_at: Date;
 };
 
-// Fila enriquecida con datos del estudiante y del curso
 type EnrollmentDetailedRow = EnrollmentRow & {
-  // Estudiante
-  student_first_name: string;
-  student_last_name: string;
+  student_full_name: string;
   student_dni: string;
   student_email: string | null;
-  // Curso
   course_academic_year_id: string;
   course_year: number;
   course_section_id: string;
@@ -32,9 +28,9 @@ type EnrollmentDetailedRow = EnrollmentRow & {
   course_subject_id: string;
   course_subject_code: string;
   course_subject_name: string;
-  course_teacher_id: string;
-  course_teacher_first_name: string;
-  course_teacher_last_name: string;
+  course_teacher_id: string | null;
+  course_teacher_full_name: string | null;
+  course_grade_id: string;
   course_grade_code: string;
   course_grade_name: string;
   course_grade_level: string;
@@ -62,8 +58,7 @@ const toApiDetailed = (row: EnrollmentDetailedRow) => ({
   updatedAt: row.updated_at,
   student: {
     id: row.student_id,
-    firstName: row.student_first_name,
-    lastName: row.student_last_name,
+    fullName: row.student_full_name,
     dni: row.student_dni,
     email: row.student_email,
   },
@@ -76,8 +71,15 @@ const toApiDetailed = (row: EnrollmentDetailedRow) => ({
     section: {
       id: row.course_section_id,
       name: row.course_section_name,
+      gradeLevel: {
+        id: row.course_grade_id,
+        code: row.course_grade_code,
+        name: row.course_grade_name,
+        level: row.course_grade_level,
+      },
     },
     gradeLevel: {
+      id: row.course_grade_id,
       code: row.course_grade_code,
       name: row.course_grade_name,
       level: row.course_grade_level,
@@ -87,19 +89,19 @@ const toApiDetailed = (row: EnrollmentDetailedRow) => ({
       code: row.course_subject_code,
       name: row.course_subject_name,
     },
-    teacher: {
-      id: row.course_teacher_id,
-      firstName: row.course_teacher_first_name,
-      lastName: row.course_teacher_last_name,
-    },
+    teacher: row.course_teacher_id
+      ? {
+          id: row.course_teacher_id,
+          fullName: row.course_teacher_full_name ?? '',
+        }
+      : null,
   },
 });
 
 const buildDetailedSelect = (schemaName: string) => `
   SELECT
     e.*,
-    st.first_name AS student_first_name,
-    st.last_name AS student_last_name,
+    st.full_name AS student_full_name,
     st.dni AS student_dni,
     st.email AS student_email,
     c.academic_year_id AS course_academic_year_id,
@@ -110,8 +112,8 @@ const buildDetailedSelect = (schemaName: string) => `
     sub.code AS course_subject_code,
     sub.name AS course_subject_name,
     c.teacher_id AS course_teacher_id,
-    t.first_name AS course_teacher_first_name,
-    t.last_name AS course_teacher_last_name,
+    t.full_name AS course_teacher_full_name,
+    gl.id AS course_grade_id,
     gl.code AS course_grade_code,
     gl.name AS course_grade_name,
     gl.level AS course_grade_level
@@ -122,7 +124,7 @@ const buildDetailedSelect = (schemaName: string) => `
   JOIN "${schemaName}".sections s ON s.id = c.section_id
   JOIN "${schemaName}".grade_levels gl ON gl.id = s.grade_level_id
   JOIN "${schemaName}".subjects sub ON sub.id = c.subject_id
-  JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
+  LEFT JOIN "${schemaName}".teachers t ON t.id = c.teacher_id
 `;
 
 export const enrollmentsRepository = {
@@ -190,7 +192,7 @@ export const enrollmentsRepository = {
 
     const rows = await prisma.$queryRawUnsafe<EnrollmentDetailedRow[]>(
       `${buildDetailedSelect(schemaName)} ${where}
-       ORDER BY st.last_name ASC, st.first_name ASC`,
+       ORDER BY st.full_name ASC`,
       ...params,
     );
     return rows.map(toApiDetailed);
@@ -245,10 +247,6 @@ export const enrollmentsRepository = {
     return rows[0] ? toApi(rows[0]) : null;
   },
 
-    /**
-   * Cuenta cuántas notas y asistencias tiene un estudiante en el curso
-   * de esta matrícula. Se usa antes de eliminar.
-   */
   async countRelatedData(schemaName: string, enrollmentId: string) {
     assertSafeSchemaName(schemaName);
 
@@ -292,5 +290,68 @@ export const enrollmentsRepository = {
         attendanceRecords: Number(r.attendance_records),
       },
     };
+  },
+
+  async autoEnrollStudentInSection(
+    schemaName: string,
+    studentId: string,
+    sectionId: string,
+  ) {
+    assertSafeSchemaName(schemaName);
+
+    const courses = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM "${schemaName}".courses
+        WHERE section_id = $1::uuid AND is_active = true`,
+      sectionId,
+    );
+
+    if (courses.length === 0) {
+      return { created: 0, skipped: 0, errors: 0 };
+    }
+
+    let created = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const c of courses) {
+      try {
+        const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT id FROM "${schemaName}".enrollments
+            WHERE course_id = $1::uuid AND student_id = $2::uuid
+            LIMIT 1`,
+          c.id,
+          studentId,
+        );
+
+        if (existing[0]) {
+          skipped++;
+          continue;
+        }
+
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "${schemaName}".enrollments (course_id, student_id)
+           VALUES ($1::uuid, $2::uuid)`,
+          c.id,
+          studentId,
+        );
+        created++;
+      } catch {
+        errors++;
+      }
+    }
+
+    return { created, skipped, errors };
+  },
+
+  async findEnrolledStudentIdsInSection(schemaName: string, sectionId: string) {
+    assertSafeSchemaName(schemaName);
+    const rows = await prisma.$queryRawUnsafe<Array<{ student_id: string }>>(
+      `SELECT DISTINCT e.student_id
+         FROM "${schemaName}".enrollments e
+         JOIN "${schemaName}".courses c ON c.id = e.course_id
+        WHERE c.section_id = $1::uuid AND e.status = 'active'`,
+      sectionId,
+    );
+    return rows.map((r) => r.student_id);
   },
 };

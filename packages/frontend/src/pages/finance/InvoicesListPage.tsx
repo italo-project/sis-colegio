@@ -56,8 +56,7 @@ export const InvoicesListPage = () => {
       if (!search) return true;
       const q = search.toLowerCase();
       return (
-        inv.student?.firstName.toLowerCase().includes(q) ||
-        inv.student?.lastName.toLowerCase().includes(q) ||
+        (inv.student?.fullName ?? '').toLowerCase().includes(q) ||
         inv.student?.dni.toLowerCase().includes(q) ||
         inv.feeConcept?.name.toLowerCase().includes(q) ||
         inv.period?.toLowerCase().includes(q)
@@ -67,7 +66,7 @@ export const InvoicesListPage = () => {
   const handleCancel = (invoice: Invoice) => {
     if (
       confirm(
-        `¿Cancelar esta factura?\n\nEstudiante: ${invoice.student?.firstName} ${invoice.student?.lastName}\nConcepto: ${invoice.feeConcept?.name}\nMonto: S/ ${invoice.amount.toFixed(2)}`,
+        `¿Cancelar esta factura?\n\nEstudiante: ${invoice.student?.fullName}\nConcepto: ${invoice.feeConcept?.name}\nMonto: S/ ${invoice.amount.toFixed(2)}`,
       )
     ) {
       cancelMutation.mutate(invoice.id);
@@ -161,7 +160,7 @@ export const InvoicesListPage = () => {
                   <tr key={inv.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">
-                        {inv.student?.lastName}, {inv.student?.firstName}
+                        {inv.student?.fullName ?? '—'}
                       </div>
                       <div className="text-xs text-gray-500">DNI {inv.student?.dni}</div>
                     </td>

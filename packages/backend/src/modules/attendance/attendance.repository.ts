@@ -6,7 +6,7 @@ import type {
   UpdateAttendanceSessionInput,
 } from './attendance.schemas';
 
-// ── Sesiones ────────────────────────────────────────────────
+// ── Sesiones ──────────────────────────────────────────────────
 type SessionRow = {
   id: string;
   section_id: string;
@@ -14,6 +14,7 @@ type SessionRow = {
   topic: string | null;
   notes: string | null;
   taken_by: string;
+  is_final: boolean;
   created_at: Date;
   updated_at: Date;
 };
@@ -28,10 +29,6 @@ type SessionDetailedRow = SessionRow & {
   academic_year: number;
 };
 
-/**
- * Formatea una fecha DATE de Postgres como string "YYYY-MM-DD".
- * Usa getUTC* para no desplazar la fecha por zona horaria.
- */
 const formatDateOnly = (d: Date | string | null): string | null => {
   if (!d) return null;
   if (typeof d === 'string') return d.substring(0, 10);
@@ -48,6 +45,7 @@ const toSessionApi = (row: SessionRow) => ({
   topic: row.topic,
   notes: row.notes,
   takenBy: row.taken_by,
+  isFinal: row.is_final,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -223,9 +221,21 @@ export const attendanceSessionsRepository = {
     );
     return rows[0] ? toSessionApi(rows[0]) : null;
   },
+
+  async markAsFinal(schemaName: string, id: string) {
+    assertSafeSchemaName(schemaName);
+    const rows = await prisma.$queryRawUnsafe<SessionRow[]>(
+      `UPDATE "${schemaName}".attendance_sessions
+          SET is_final = true, updated_at = now()
+        WHERE id = $1::uuid
+        RETURNING *`,
+      id,
+    );
+    return rows[0] ? toSessionApi(rows[0]) : null;
+  },
 };
 
-// ── Registros ───────────────────────────────────────────────
+// ── Registros ─────────────────────────────────────────────────
 type RecordRow = {
   id: string;
   session_id: string;
@@ -239,8 +249,7 @@ type RecordRow = {
 };
 
 type RecordDetailedRow = RecordRow & {
-  student_first_name: string;
-  student_last_name: string;
+  student_full_name: string;
   student_dni: string;
 };
 
@@ -260,8 +269,7 @@ const toRecordDetailedApi = (row: RecordDetailedRow) => ({
   ...toRecordApi(row),
   student: {
     id: row.student_id,
-    firstName: row.student_first_name,
-    lastName: row.student_last_name,
+    fullName: row.student_full_name,
     dni: row.student_dni,
   },
 });
@@ -321,13 +329,12 @@ export const attendanceRecordsRepository = {
     const rows = await prisma.$queryRawUnsafe<RecordDetailedRow[]>(
       `SELECT
          ar.*,
-         s.first_name AS student_first_name,
-         s.last_name AS student_last_name,
+         s.full_name AS student_full_name,
          s.dni AS student_dni
        FROM "${schemaName}".attendance_records ar
        JOIN "${schemaName}".students s ON s.id = ar.student_id
        WHERE ar.session_id = $1::uuid
-       ORDER BY s.last_name ASC, s.first_name ASC`,
+       ORDER BY s.full_name ASC`,
       sessionId,
     );
     return rows.map(toRecordDetailedApi);
@@ -344,10 +351,6 @@ export const attendanceRecordsRepository = {
     return rows[0] ? toRecordApi(rows[0]) : null;
   },
 
-  /**
-   * Historial de asistencia de un estudiante.
-   * Si se pasa sectionId, filtra por esa sección.
-   */
   async historyByStudent(schemaName: string, studentId: string, sectionId?: string) {
     assertSafeSchemaName(schemaName);
     const params: unknown[] = [studentId];

@@ -9,6 +9,11 @@ adminRouter.use(requireAuth, requireSuperAdmin);
 
 adminRouter.get('/stats', adminController.globalStats);
 
+// ⚠️ Reset total (solo super-admin) — ANTES de rutas genéricas
+adminRouter.post('/reset-all-data', adminController.resetAllData);
+// ⚠️ Seed demo (solo super-admin)
+adminRouter.post('/seed-demo', adminController.seedDemo);
+
 // Organizaciones
 adminRouter.get('/organizations', adminController.listOrganizations);
 adminRouter.get('/organizations/:id', adminController.getOrganization);

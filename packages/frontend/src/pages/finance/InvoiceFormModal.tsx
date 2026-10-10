@@ -14,7 +14,7 @@ type Props = {
   onSuccess: () => void;
 };
 
-type Student = { id: string; firstName: string; lastName: string; dni: string };
+type Student = { id: string; fullName: string; dni: string };
 
 export const InvoiceFormModal = ({ open, onClose, onSuccess }: Props) => {
   const {
@@ -89,7 +89,7 @@ export const InvoiceFormModal = ({ open, onClose, onSuccess }: Props) => {
             <option value="">Selecciona...</option>
             {students?.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.lastName}, {s.firstName} — DNI {s.dni}
+                {s.fullName} — DNI {s.dni}
               </option>
             ))}
           </select>

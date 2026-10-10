@@ -15,14 +15,16 @@ import { apiClient, getErrorMessage } from '@/api/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { useAuthStore } from '@/stores/auth.store';
 import type { Course } from '@/types/course';
 import type { Evaluation } from '@/types/grades';
-
-
 
 export const CourseGradesPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const queryClient = useQueryClient();
+  const role = useAuthStore((s) => s.role);
+  const isCeo = role === 'ceo';
+
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [isEvalModalOpen, setIsEvalModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
@@ -86,6 +88,11 @@ export const CourseGradesPage = () => {
     {} as Record<string, Evaluation[]>,
   );
 
+  // Link de "volver" dinámico según rol
+  const backLink = isCeo && course?.section?.id
+    ? { to: `/sections/${course.section.id}`, label: 'Volver a la sección' }
+    : { to: '/my-courses', label: 'Mis cursos' };
+
   return (
     <div className="space-y-6">
       {toast && (
@@ -102,11 +109,11 @@ export const CourseGradesPage = () => {
 
       <div>
         <Link
-          to="/my-courses"
+          to={backLink.to}
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Mis cursos
+          {backLink.label}
         </Link>
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
@@ -689,7 +696,7 @@ const GradeSheetModal = ({
                   return (
                     <tr key={row.student.id} className={hasEdit ? 'bg-yellow-50' : ''}>
                       <td className="px-4 py-2">
-                        {row.student.lastName}, {row.student.firstName}
+                        {row.student.fullName}
                       </td>
                       <td className="px-4 py-2 text-gray-500 text-xs">{row.student.dni}</td>
                       <td className="px-4 py-2">

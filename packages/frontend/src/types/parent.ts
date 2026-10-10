@@ -10,6 +10,7 @@ export type Parent = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  childrenCount: number;
 
   canBeDeleted?: boolean;
   relatedDataCount?: number;

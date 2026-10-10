@@ -1,4 +1,7 @@
 import { prisma } from '../../config/prisma';
+import { hashPassword as bcryptHash } from '../../utils/password';
+import { migrateTenantSchema } from '../../db/tenant-migrations-service';
+import { seedAcademicBaseData } from '../../utils/tenant-schema';
 
 type OrganizationRow = {
   id: string;
@@ -80,7 +83,6 @@ export const adminRepository = {
   },
 
   async getOrganizationStats(organizationId: string, schemaName: string) {
-    // Contar estudiantes, docentes, cursos y usuarios de ese colegio
     const students = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
       `SELECT COUNT(*)::bigint as count FROM "${schemaName}".students WHERE is_active = true`,
     );
@@ -160,7 +162,6 @@ export const adminRepository = {
       `SELECT COUNT(*)::bigint AS total FROM public.users WHERE is_active = true`,
     );
 
-    // Sumar alumnos y docentes de todos los esquemas de tenants
     const orgsList = await prisma.$queryRawUnsafe<
       Array<{ schema_name: string; plan: string; is_active: boolean }>
     >(`SELECT schema_name, plan, is_active FROM public.organizations WHERE is_active = true`);
@@ -244,10 +245,7 @@ export const adminRepository = {
       createdAt: r.created_at,
     }));
   },
-    /**
-   * Cuenta datos asociados a un colegio antes de eliminarlo.
-   * Si tiene datos, no se puede eliminar definitivamente.
-   */
+
   async countOrganizationData(schemaName: string) {
     const results = await Promise.all([
       prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
@@ -280,13 +278,7 @@ export const adminRepository = {
     return { total, breakdown };
   },
 
-  /**
-   * Elimina un colegio definitivamente.
-   * DROP SCHEMA ... CASCADE + DELETE de organization + DELETE de users únicos
-   * (los que solo pertenecían a este colegio).
-   */
   async deleteOrganization(organizationId: string, schemaName: string, deletedBy: string) {
-    // 1. Obtener los user_ids que solo pertenecen a este colegio
     const usersOnlyInThisOrg = await prisma.$queryRawUnsafe<Array<{ user_id: string }>>(
       `SELECT ou.user_id
        FROM public.organization_users ou
@@ -301,21 +293,17 @@ export const adminRepository = {
 
     const userIdsToDelete = usersOnlyInThisOrg.map((r) => r.user_id);
 
-    // 2. Ejecutar todo en una transacción
     await prisma.$transaction(async (tx) => {
-      // Borrar memberships
       await tx.$executeRawUnsafe(
         `DELETE FROM public.organization_users WHERE organization_id = $1::uuid`,
         organizationId,
       );
 
-      // Borrar la organización
       await tx.$executeRawUnsafe(
         `DELETE FROM public.organizations WHERE id = $1::uuid`,
         organizationId,
       );
 
-      // Borrar usuarios que solo pertenecían a este colegio
       if (userIdsToDelete.length > 0) {
         await tx.$executeRawUnsafe(
           `DELETE FROM public.users WHERE id = ANY($1::uuid[])`,
@@ -324,7 +312,6 @@ export const adminRepository = {
       }
     });
 
-    // 3. DROP SCHEMA fuera de la transacción (DDL no puede estar en transacción de Prisma)
     await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
 
     return {
@@ -333,10 +320,6 @@ export const adminRepository = {
     };
   },
 
-  /**
-   * Exporta todos los datos de un colegio en formato JSON.
-   * Incluye: organización, usuarios, y conteos de datos del tenant.
-   */
   async exportOrganizationData(organizationId: string, schemaName: string) {
     const org = await this.getOrganizationById(organizationId);
     if (!org) throw new Error('Organización no encontrada');
@@ -344,17 +327,16 @@ export const adminRepository = {
     const memberships = await this.listMemberships(organizationId);
     const stats = await this.getOrganizationStats(organizationId, schemaName);
 
-    // Traer estudiantes, docentes y facturas básicas (opcional, puede ser mucho)
     const students = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT id, first_name, last_name, dni, email, phone, is_active, created_at
+      `SELECT id, full_name, dni, email, phone, is_active, created_at
        FROM "${schemaName}".students
-       ORDER BY last_name ASC`,
+       ORDER BY full_name ASC`,
     );
 
     const teachers = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT id, first_name, last_name, dni, email, specialty, is_active, created_at
+      `SELECT id, full_name, dni, email, specialty, is_active, created_at
        FROM "${schemaName}".teachers
-       ORDER BY last_name ASC`,
+       ORDER BY full_name ASC`,
     );
 
     const invoices = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
@@ -377,9 +359,6 @@ export const adminRepository = {
     };
   },
 
-  /**
-   * Lista organizaciones, incluyendo las soft-deleted si se pide.
-   */
   async listAllOrganizations(query: {
     q?: string;
     isActive?: string;
@@ -427,9 +406,7 @@ export const adminRepository = {
       total: Number(countRows[0].count),
     };
   },
-    /**
-   * Lista todos los usuarios del sistema con filtros y su cantidad de membresías.
-   */
+
   async listUsers(query: {
     q?: string;
     isActive?: string;
@@ -503,9 +480,6 @@ export const adminRepository = {
     };
   },
 
-  /**
-   * Obtiene un usuario por ID con sus membresías.
-   */
   async getUserById(id: string) {
     const rows = await prisma.$queryRawUnsafe<
       Array<{
@@ -629,7 +603,6 @@ export const adminRepository = {
   },
 
   async deleteUser(id: string) {
-    // Solo se puede eliminar si no tiene memberships activas
     const memberships = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
       `SELECT COUNT(*)::bigint as count FROM public.organization_users WHERE user_id = $1::uuid`,
       id,
@@ -644,9 +617,7 @@ export const adminRepository = {
     await prisma.$executeRawUnsafe(`DELETE FROM public.users WHERE id = $1::uuid`, id);
     return { ok: true };
   },
-    /**
-   * Lista los logs de auditoría con filtros.
-   */
+
   async listAuditLogs(query: {
     action?: string;
     actorUserId?: string;
@@ -727,5 +698,437 @@ export const adminRepository = {
       })),
       total: Number(countRows[0].count),
     };
+  },
+
+  /**
+   * ⚠️ PELIGROSO: Borra TODOS los datos de la plataforma excepto el super-admin actual.
+   */
+  async resetAllData(currentUserId: string) {
+    const orgs = await prisma.$queryRawUnsafe<
+      Array<{ id: string; name: string; schemaName: string }>
+    >(`SELECT id, name, schema_name AS "schemaName" FROM public.organizations`);
+
+    await prisma.$executeRawUnsafe(`DELETE FROM public.organization_users`);
+    await prisma.$executeRawUnsafe(`DELETE FROM public.organizations`);
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM public.users WHERE id <> $1::uuid`,
+      currentUserId,
+    );
+    await prisma.$executeRawUnsafe(`DELETE FROM public.audit_logs`);
+    await prisma.$executeRawUnsafe(`DELETE FROM public.password_reset_tokens`);
+
+    const dropped: string[] = [];
+    for (const org of orgs) {
+      await prisma.$executeRawUnsafe(
+        `DROP SCHEMA IF EXISTS "${org.schemaName}" CASCADE`,
+      );
+      dropped.push(org.schemaName);
+    }
+
+    return {
+      droppedSchemas: dropped,
+      deletedOrganizations: orgs.length,
+    };
+  },
+
+  /**
+   * Crea un colegio demo completo con datos de prueba.
+   * Idempotente: si el colegio demo ya existe, devuelve error.
+   * Si algo falla a mitad de camino, limpia los datos creados (rollback manual).
+   */
+  async seedDemoData() {
+    const DEMO_SUBDOMAIN = 'demo';
+    const DEMO_SCHEMA = 'tenant_demo';
+    const DEMO_CEO_EMAIL = 'ceo@demo.pe';
+    const DEMO_CEO_PASSWORD = 'Demo123!';
+
+    // 1. Verificar que no exista ya
+    const existing = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM public.organizations WHERE subdomain = $1 LIMIT 1`,
+      DEMO_SUBDOMAIN,
+    );
+    if (existing[0]) {
+      return {
+        error: `Ya existe un colegio con subdominio "${DEMO_SUBDOMAIN}". Haz Reset total antes de volver a crear datos de prueba.`,
+      };
+    }
+
+    try {
+      // 2. Crear organización + CEO
+      const org = await prisma.organization.create({
+        data: {
+          name: 'Colegio Demo',
+          subdomain: DEMO_SUBDOMAIN,
+          schemaName: DEMO_SCHEMA,
+          plan: 'pro',
+        },
+      });
+
+      const passwordHash = await bcryptHash(DEMO_CEO_PASSWORD);
+      const ceo = await prisma.user.create({
+        data: {
+          email: DEMO_CEO_EMAIL,
+          passwordHash,
+          fullName: 'CEO Demo',
+        },
+      });
+
+      await prisma.organizationUser.create({
+        data: {
+          organizationId: org.id,
+          userId: ceo.id,
+          role: 'ceo',
+        },
+      });
+
+      // 3. Crear esquema y migraciones (usando imports estáticos)
+      await migrateTenantSchema(DEMO_SCHEMA);
+      await seedAcademicBaseData(DEMO_SCHEMA);
+
+      // 4. Traer año escolar activo + grados
+      const yearRows = await prisma.$queryRawUnsafe<Array<{ id: string; year: number }>>(
+        `SELECT id, year FROM "${DEMO_SCHEMA}".academic_years WHERE is_active = true LIMIT 1`,
+      );
+      const year = yearRows[0];
+
+      const gradeRows = await prisma.$queryRawUnsafe<
+        Array<{ id: string; code: string; name: string; order_index: number }>
+      >(
+        `SELECT id, code, name, order_index FROM "${DEMO_SCHEMA}".grade_levels WHERE code IN ('PRIM_1', 'SEC_1') ORDER BY order_index ASC`,
+      );
+
+      // 5. Crear 2 docentes (con usuario y organización)
+      const teacherPass = await bcryptHash('Docente123!');
+      const teachersData = [
+        { fullName: 'Juan Pérez Docente', email: 'juan.docente@demo.pe', dni: '70000001' },
+        { fullName: 'María López Docente', email: 'maria.docente@demo.pe', dni: '70000002' },
+      ];
+
+      const teachers: Array<{ id: string; userId: string; fullName: string }> = [];
+      for (const t of teachersData) {
+        const u = await prisma.user.create({
+          data: {
+            email: t.email,
+            passwordHash: teacherPass,
+            fullName: t.fullName,
+            mustChangePassword: true,
+          },
+        });
+        await prisma.organizationUser.create({
+          data: { organizationId: org.id, userId: u.id, role: 'docente' },
+        });
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".teachers (user_id, full_name, dni, email)
+           VALUES ($1::uuid, $2, $3, $4) RETURNING id`,
+          u.id,
+          t.fullName,
+          t.dni,
+          t.email,
+        );
+        teachers.push({ id: rows[0].id, userId: u.id, fullName: t.fullName });
+      }
+
+      // 6. Crear 3 materias
+      const subjectsData = [
+        { code: 'MAT', name: 'Matemática', area: 'Ciencias' },
+        { code: 'COM', name: 'Comunicación', area: 'Letras' },
+        { code: 'ING', name: 'Inglés', area: 'Idiomas' },
+      ];
+      const subjects: Array<{ id: string; code: string }> = [];
+      for (const s of subjectsData) {
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".subjects (code, name, area) VALUES ($1, $2, $3) RETURNING id`,
+          s.code,
+          s.name,
+          s.area,
+        );
+        subjects.push({ id: rows[0].id, code: s.code });
+      }
+
+      // 7. Crear secciones A y B para cada grado
+      const sections: Array<{ id: string; name: string; gradeLevelId: string }> = [];
+      for (const g of gradeRows) {
+        for (const secName of ['A', 'B']) {
+          const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+            `INSERT INTO "${DEMO_SCHEMA}".sections (academic_year_id, grade_level_id, name, capacity)
+             VALUES ($1::uuid, $2::uuid, $3, 30) RETURNING id`,
+            year.id,
+            g.id,
+            secName,
+          );
+          sections.push({ id: rows[0].id, name: secName, gradeLevelId: g.id });
+        }
+      }
+
+      // 8. Crear 6 apoderados + 6 estudiantes
+      const studentsData = [
+        { fullName: 'Ana Torres', dni: '80000001', email: 'ana.torres@demo.pe' },
+        { fullName: 'Carlos Gómez', dni: '80000002', email: 'carlos.gomez@demo.pe' },
+        { fullName: 'Lucía Ramírez', dni: '80000003', email: 'lucia.ramirez@demo.pe' },
+        { fullName: 'Diego Flores', dni: '80000004', email: 'diego.flores@demo.pe' },
+        { fullName: 'Sofía Mendoza', dni: '80000005', email: 'sofia.mendoza@demo.pe' },
+        { fullName: 'Mateo Rojas', dni: '80000006', email: 'mateo.rojas@demo.pe' },
+      ];
+      const parentPass = await bcryptHash('Padre123!');
+      const studentPass = await bcryptHash('Estudiante123!');
+
+      const createdStudents: Array<{
+        id: string;
+        sectionId: string;
+        fullName: string;
+      }> = [];
+
+      // Repartir 3 en sección "1°A Primaria" y 3 en "1°A Secundaria"
+      const prim1A = sections.find((s) => s.name === 'A' && s.gradeLevelId === gradeRows[0].id)!;
+      const sec1A = sections.find((s) => s.name === 'A' && s.gradeLevelId === gradeRows[1].id)!;
+      const targetSections = [prim1A, prim1A, prim1A, sec1A, sec1A, sec1A];
+
+      for (let i = 0; i < studentsData.length; i++) {
+        const sd = studentsData[i];
+        const parentFullName = `Apoderado de ${sd.fullName.split(' ')[0]}`;
+        const parentDni = `6000000${i + 1}`;
+        const parentEmail = `apoderado${i + 1}@demo.pe`;
+
+        // Crear usuario padre
+        const pu = await prisma.user.create({
+          data: {
+            email: parentEmail,
+            passwordHash: parentPass,
+            fullName: parentFullName,
+            mustChangePassword: true,
+          },
+        });
+        await prisma.organizationUser.create({
+          data: { organizationId: org.id, userId: pu.id, role: 'padre' },
+        });
+
+        const parentRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".parents (user_id, full_name, dni, email)
+           VALUES ($1::uuid, $2, $3, $4) RETURNING id`,
+          pu.id,
+          parentFullName,
+          parentDni,
+          parentEmail,
+        );
+        const parentId = parentRows[0].id;
+
+        // Crear usuario estudiante
+        const su = await prisma.user.create({
+          data: {
+            email: sd.email,
+            passwordHash: studentPass,
+            fullName: sd.fullName,
+            mustChangePassword: true,
+          },
+        });
+        await prisma.organizationUser.create({
+          data: { organizationId: org.id, userId: su.id, role: 'estudiante' },
+        });
+
+        // Crear estudiante
+        const targetSec = targetSections[i];
+        const studentRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".students
+             (user_id, full_name, dni, email, section_id)
+           VALUES ($1::uuid, $2, $3, $4, $5::uuid) RETURNING id`,
+          su.id,
+          sd.fullName,
+          sd.dni,
+          sd.email,
+          targetSec.id,
+        );
+        const studentId = studentRows[0].id;
+
+        // Vincular apoderado
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "${DEMO_SCHEMA}".student_parents
+             (student_id, parent_id, relationship, is_primary)
+           VALUES ($1::uuid, $2::uuid, 'apoderado', true)`,
+          studentId,
+          parentId,
+        );
+
+        // Historial de sección
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "${DEMO_SCHEMA}".student_section_history
+             (student_id, section_id, academic_year_id, enrolled_at)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, now())`,
+          studentId,
+          targetSec.id,
+          year.id,
+        );
+
+        createdStudents.push({
+          id: studentId,
+          sectionId: targetSec.id,
+          fullName: sd.fullName,
+        });
+      }
+
+      // 9. Crear 4 cursos: MAT y COM en 1°A Primaria + 1°A Secundaria
+      const coursesData: Array<{
+        sectionId: string;
+        subjectCode: string;
+        teacherIdx: number;
+      }> = [
+        { sectionId: prim1A.id, subjectCode: 'MAT', teacherIdx: 0 },
+        { sectionId: prim1A.id, subjectCode: 'COM', teacherIdx: 1 },
+        { sectionId: sec1A.id, subjectCode: 'MAT', teacherIdx: 0 },
+        { sectionId: sec1A.id, subjectCode: 'COM', teacherIdx: 1 },
+      ];
+
+      const courses: Array<{ id: string; sectionId: string }> = [];
+      for (const c of coursesData) {
+        const subject = subjects.find((s) => s.code === c.subjectCode)!;
+        const teacher = teachers[c.teacherIdx];
+        const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".courses
+             (academic_year_id, section_id, subject_id, teacher_id, weekly_hours)
+           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 5) RETURNING id`,
+          year.id,
+          c.sectionId,
+          subject.id,
+          teacher.id,
+        );
+        courses.push({ id: rows[0].id, sectionId: c.sectionId });
+      }
+
+      // 10. Matricular estudiantes en los cursos de su sección
+      for (const s of createdStudents) {
+        const coursesOfSection = courses.filter((c) => c.sectionId === s.sectionId);
+        for (const c of coursesOfSection) {
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "${DEMO_SCHEMA}".enrollments (course_id, student_id)
+             VALUES ($1::uuid, $2::uuid)
+             ON CONFLICT DO NOTHING`,
+            c.id,
+            s.id,
+          );
+        }
+      }
+
+      // 11. Crear categoría + evaluación + notas en un curso (ej: MAT prim1A)
+      const matPrim1A = courses.find((c) => c.sectionId === prim1A.id);
+      if (matPrim1A) {
+        const catRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".grade_categories
+             (course_id, name, weight, order_index)
+           VALUES ($1::uuid, 'Prácticas', 100, 1) RETURNING id`,
+          matPrim1A.id,
+        );
+        const catId = catRows[0].id;
+
+        const evalRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `INSERT INTO "${DEMO_SCHEMA}".evaluations
+             (category_id, name, weight, max_score, evaluation_date)
+           VALUES ($1::uuid, 'Práctica 1', 100, 20, CURRENT_DATE) RETURNING id`,
+          catId,
+        );
+        const evalId = evalRows[0].id;
+
+        const studentsInPrim1A = createdStudents.filter((s) => s.sectionId === prim1A.id);
+        const scores = [15, 17, 13];
+        for (let i = 0; i < studentsInPrim1A.length; i++) {
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "${DEMO_SCHEMA}".grade_entries
+               (evaluation_id, student_id, score, graded_at)
+             VALUES ($1::uuid, $2::uuid, $3, now())
+             ON CONFLICT DO NOTHING`,
+            evalId,
+            studentsInPrim1A[i].id,
+            scores[i] ?? 14,
+          );
+        }
+      }
+
+      // 12. Registrar una sesión de asistencia de hoy en 1°A Primaria
+      const attendanceSessionRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+        `INSERT INTO "${DEMO_SCHEMA}".attendance_sessions
+           (section_id, session_date, topic, taken_by, is_final)
+         VALUES ($1::uuid, CURRENT_DATE, 'Clase demo', $2::uuid, false)
+         ON CONFLICT (section_id, session_date) DO NOTHING
+         RETURNING id`,
+        prim1A.id,
+        teachers[0].userId,
+      );
+
+      if (attendanceSessionRows[0]) {
+        const sessionId = attendanceSessionRows[0].id;
+        const studentsInPrim1A = createdStudents.filter((s) => s.sectionId === prim1A.id);
+        const statuses = ['present', 'absent', 'late'];
+        for (let i = 0; i < studentsInPrim1A.length; i++) {
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO "${DEMO_SCHEMA}".attendance_records
+               (session_id, student_id, status, recorded_by)
+             VALUES ($1::uuid, $2::uuid, $3, $4::uuid)
+             ON CONFLICT DO NOTHING`,
+            sessionId,
+            studentsInPrim1A[i].id,
+            statuses[i] ?? 'present',
+            teachers[0].userId,
+          );
+        }
+      }
+
+      return {
+        ok: true,
+        organization: {
+          id: org.id,
+          name: org.name,
+          subdomain: org.subdomain,
+        },
+        credentials: {
+          ceo: { email: DEMO_CEO_EMAIL, password: DEMO_CEO_PASSWORD },
+        },
+        summary: {
+          teachers: teachers.length,
+          students: createdStudents.length,
+          sections: sections.length,
+          subjects: subjects.length,
+          courses: courses.length,
+        },
+      };
+    } catch (err) {
+      // ⚠️ Rollback manual: limpiar todo lo que se haya creado
+      console.error('❌ Error en seedDemoData, limpiando datos parciales...', err);
+
+      try {
+        // 1. Borrar membresías del colegio demo
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM public.organization_users
+           WHERE organization_id IN (
+             SELECT id FROM public.organizations WHERE subdomain = $1
+           )`,
+          DEMO_SUBDOMAIN,
+        );
+
+        // 2. Borrar organización demo
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM public.organizations WHERE subdomain = $1`,
+          DEMO_SUBDOMAIN,
+        );
+
+        // 3. Borrar usuarios demo que quedaron huérfanos (sin membresías)
+        //    Los emails demo siguen un patrón predecible.
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM public.users
+           WHERE email = $1
+              OR email LIKE '%@demo.pe'`,
+          DEMO_CEO_EMAIL,
+        );
+
+        // 4. Dropear el schema del tenant
+        await prisma.$executeRawUnsafe(
+          `DROP SCHEMA IF EXISTS "${DEMO_SCHEMA}" CASCADE`,
+        );
+
+        console.log('✅ Limpieza completada tras error en seedDemoData');
+      } catch (cleanupErr) {
+        console.error('⚠️ Error durante la limpieza del seed demo:', cleanupErr);
+      }
+
+      // Re-lanzar el error original para que el controller lo maneje
+      throw err;
+    }
   },
 };
