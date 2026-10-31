@@ -4,6 +4,9 @@ import { requireAuth } from '../../middleware/auth';
 import { requireRole } from '../../middleware/rbac';
 import { financeController } from './finance.controller';
 import { reportsController } from './reports.controller';
+import { receiptUpload } from '../../middleware/upload';
+
+
 
 export const financeRouter = Router();
 
@@ -41,3 +44,15 @@ financeRouter.get('/reports/by-grade', requireRole('ceo'), reportsController.byG
 financeRouter.get('/reports/overdue', requireRole('ceo'), reportsController.overdue);
 financeRouter.get('/reports/student/:studentId', requireRole('ceo'), reportsController.studentStatement);
 financeRouter.get('/reports/export/invoices', requireRole('ceo'), reportsController.exportInvoicesCsv);
+
+// Subir comprobante (Padre o CEO)
+financeRouter.post('/invoices/:id/receipts',requireAuth,resolveTenant,requireRole('padre', 'ceo'), receiptUpload.single('receipt'),financeController.uploadReceipt);
+
+// Listar comprobantes pendientes (Solo CEO)
+financeRouter.get('/receipts/pending',requireAuth,resolveTenant,requireRole('ceo'),financeController.listPendingReceipts);
+
+// Aprobar / Rechazar (Solo CEO)
+financeRouter.patch('/receipts/:id/review',requireAuth,resolveTenant,requireRole('ceo'),financeController.reviewReceipt);
+
+// Iniciar pago con pasarela (Padre o CEO)
+financeRouter.post('/invoices/:id/pay/gateway',requireAuth,resolveTenant,requireRole('padre', 'ceo'),financeController.payWithGateway);

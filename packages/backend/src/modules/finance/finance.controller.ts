@@ -8,9 +8,11 @@ import { studentParentsRepository } from '../student-parents/student-parents.rep
 import { mpRepository } from '../mercadopago/mp.repository';
 import { createPreference } from '../mercadopago/mp.client';
 import { buildPreferencePayload } from '../mercadopago/mp-payment.helpers';
+import { receiptsRepository } from './receipts.repository';
 import {
   feeAmountsRepository,
   feeConceptsRepository,
+  reportsRepository,
   invoicesRepository,
   paymentsRepository,
 } from './finance.repository';
@@ -262,7 +264,7 @@ if (!concept || !concept.isActive) {
     res.json(result);
   },
 
-  async getInvoice(req: Request, res: Response) {
+   async getInvoice(req: Request, res: Response) {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
 
@@ -270,9 +272,13 @@ if (!concept || !concept.isActive) {
     if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
 
     const payments = await paymentsRepository.listByInvoice(req.tenant!.schemaName, id);
-    res.json({ ...invoice, payments });
+    
+    // NUEVO: Traer los comprobantes
+    const receipts = await receiptsRepository.listPendingByInvoice(req.tenant!.schemaName, id);
+    
+    // NUEVO: Devolver receipts en la respuesta
+    res.json({ ...invoice, payments, receipts });
   },
-
   async updateInvoice(req: Request, res: Response) {
     const id = getStringParam(req, res, 'id');
     if (!id) return;
@@ -438,6 +444,83 @@ if (!concept || !concept.isActive) {
     });
   },
 
+    /**
+   * POST /api/finance/invoices/:id/pay/gateway
+   * Inicia el pago con pasarela (Izipay, etc.)
+   * NOTA: Por ahora es un esqueleto. La integración real va en el bloque G4.
+   */
+  async payWithGateway(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    const schema = req.tenant!.schemaName;
+
+    // 1. Verificar que el colegio tiene habilitada la pasarela
+    // Necesitamos buscar la org para ver el flag payment_gateway_enabled
+    const org = await prisma.organization.findUnique({
+      where: { id: req.tenant!.id },
+      select: { paymentGatewayEnabled: true },
+    });
+
+    if (!org || !org.paymentGatewayEnabled) {
+      return res.status(400).json({
+        error: 'El colegio no tiene habilitada la pasarela de pago.',
+      });
+    }
+
+    // 2. Cargar la factura y validar
+    const invoice = await invoicesRepository.findDetailedById(schema, id);
+    if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
+
+    if (invoice.status === 'paid') {
+      return res.status(409).json({ error: 'Esta factura ya está pagada' });
+    }
+    if (invoice.status === 'cancelled') {
+      return res.status(409).json({ error: 'Esta factura está cancelada' });
+    }
+
+    // 3. Validar que el padre esté vinculado al estudiante (si el rol es padre)
+    if (req.user!.role === 'padre') {
+      const parent = await parentsRepository.findByUserId(schema, req.user!.userId);
+      if (!parent) {
+        return res.status(404).json({ error: 'No estás registrado como padre' });
+      }
+      const link = await studentParentsRepository.findByStudentAndParent(
+        schema,
+        invoice.studentId,
+        parent.id,
+      );
+      if (!link) {
+        return res.status(403).json({ error: 'Esta factura no pertenece a tus hijos' });
+      }
+    }
+
+    // 4. Crear un registro de pago pendiente (para tener trazabilidad)
+    const payment = await paymentsRepository.createPending(
+      schema,
+      invoice.id,
+      invoice.amount,
+      'card',
+      'gateway', // Aquí después será 'izipay'
+      'temp_gateway_tx_id_' + Date.now(), // ID temporal
+      req.user!.userId,
+    );
+
+    // 5. TODO: En el bloque G4, aquí llamaremos a la API de Izipay y 
+    // devolveremos la URL de checkout.
+    // Por ahora, devolvemos el mensaje de "próximamente".
+    
+    // Nota: Podríamos borrar el payment pendiente que acabamos de crear
+    // para no dejar basura, ya que la pasarela no está real aún.
+    // Lo dejamos comentado para cuando implementemos G4.
+    
+    return res.status(501).json({
+      message: 'Pasarela de pago en configuración — próximamente',
+      paymentId: payment.id, // Lo devolvemos para debug
+      invoiceId: invoice.id,
+    });
+  },
+
   // ── Reportes ──────────────────────────────────────────────
   async summary(req: Request, res: Response) {
     const schemaName = req.tenant!.schemaName;
@@ -470,4 +553,101 @@ if (!concept || !concept.isActive) {
 
     res.json(result);
   },
+
+    // ── Comprobantes manuales (Yape/Transferencia) ───────────────
+
+  /**
+   * POST /api/finance/invoices/:id/receipts
+   * El padre sube un comprobante para una factura.
+   */
+  async uploadReceipt(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No se recibió ninguna imagen de comprobante' });
+    }
+
+    const schema = req.tenant!.schemaName;
+
+    // Verificar que la factura existe y está pendiente
+    const invoice = await invoicesRepository.findById(schema, id);
+    if (!invoice) return res.status(404).json({ error: 'Factura no encontrada' });
+    if (invoice.status === 'paid') return res.status(409).json({ error: 'Esta factura ya está pagada' });
+    if (invoice.status === 'cancelled') return res.status(409).json({ error: 'Esta factura está cancelada' });
+
+    const fileUrl = `/uploads/receipts/${file.filename}`;
+    const notes = req.body.notes || undefined;
+
+    const receipt = await receiptsRepository.create(
+      schema,
+      id,
+      req.user!.userId,
+      fileUrl,
+      notes
+    );
+
+    res.status(201).json(receipt);
+  },
+
+  /**
+   * PATCH /api/finance/receipts/:id/review
+   * El CEO aprueba o rechaza un comprobante.
+   */
+  async reviewReceipt(req: Request, res: Response) {
+    const id = getStringParam(req, res, 'id');
+    if (!id) return;
+
+    if (req.user!.role !== 'ceo') {
+      return res.status(403).json({ error: 'Solo el CEO puede validar comprobantes' });
+    }
+
+    const { status, reviewNotes } = req.body;
+    if (status !== 'approved' && status !== 'rejected') {
+      return res.status(400).json({ error: 'Status inválido. Debe ser approved o rejected' });
+    }
+
+    const schema = req.tenant!.schemaName;
+    const receipt = await receiptsRepository.findById(schema, id);
+    if (!receipt) return res.status(404).json({ error: 'Comprobante no encontrado' });
+    if (receipt.status !== 'pending') {
+      return res.status(409).json({ error: 'Este comprobante ya fue procesado' });
+    }
+
+    const updated = await receiptsRepository.review(
+      schema,
+      id,
+      status,
+      req.user!.userId,
+      reviewNotes
+    );
+
+    // Si se aprueba, marcar factura como pagada y crear el pago
+    if (status === 'approved') {
+      await invoicesRepository.markPaid(schema, receipt.invoiceId);
+      
+      await paymentsRepository.create(
+        schema,
+        receipt.invoiceId,
+        // Necesitamos el monto de la factura. Lo obtenemos de la BD.
+        (await invoicesRepository.findById(schema, receipt.invoiceId))?.amount || 0,
+        'transfer', // método manual
+        req.user!.userId,
+        `Aprobado por CEO. Comprobante: ${id}`
+      );
+    }
+
+    res.json(updated);
+  },
+
+  /**
+   * GET /api/finance/receipts/pending
+   * Lista los comprobantes pendientes (para el CEO).
+   */
+  async listPendingReceipts(req: Request, res: Response) {
+    const receipts = await receiptsRepository.listAllPending(req.tenant!.schemaName);
+    res.json({ items: receipts, total: receipts.length });
+  },
+
 };

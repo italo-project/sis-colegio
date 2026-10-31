@@ -39,11 +39,15 @@ import { SectionAttendancePage } from '@/pages/teacher/SectionAttendancePage';
 import { SectionDetailPage } from '@/pages/sections/SectionDetailPage';
 import { ChangeInitialPasswordPage } from '@/pages/ChangeInitialPasswordPage';
 import { CloseYearPage } from '@/pages/ceo/CloseYearPage';
+import { VioeducaLanding } from '@/pages/landing/VioeducaLanding';
+import { ViotechLanding } from '@/pages/landing/ViotechLanding';
 
 export const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
+          <Route path="/landing-vioeduca" element={<VioeducaLanding />} />
+          <Route path="/landing-viotech" element={<ViotechLanding />} />
         {/* ─── Rutas PÚBLICAS (sin auth) ─────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />

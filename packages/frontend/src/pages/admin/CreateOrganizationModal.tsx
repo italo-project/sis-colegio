@@ -24,6 +24,8 @@ export const CreateOrganizationModal = ({ open, onClose, onSuccess }: Props) => 
     defaultValues: {
       plan: 'basic',
       ceoPassword: 'Cambiar123!',
+      paymentGatewayEnabled: false,
+      paymentManualEnabled: true,
     },
   });
 
@@ -105,6 +107,44 @@ export const CreateOrganizationModal = ({ open, onClose, onSuccess }: Props) => 
                 <option value="enterprise">Enterprise</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Métodos de pago */}
+        <div className="pt-4 border-t border-gray-100">
+          <h3 className="font-semibold text-gray-900 mb-3">Métodos de pago habilitados</h3>
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('paymentGatewayEnabled')}
+                className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  Pasarela de pago (Izipay)
+                </div>
+                <div className="text-xs text-gray-500">
+                  El padre paga con tarjeta y el pago se aprueba automáticamente.
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('paymentManualEnabled')}
+                className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  Transferencia / Yape (validación manual)
+                </div>
+                <div className="text-xs text-gray-500">
+                  El padre sube un comprobante y el CEO valida el pago manualmente.
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 

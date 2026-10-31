@@ -36,3 +36,30 @@ export const avatarUpload = multer({
     fileSize: 5 * 1024 * 1024, // 5 MB máximo
   },
 });
+
+// ... código existente de avatarUpload ...
+
+// Crear carpeta para comprobantes
+const receiptsDir = path.join(process.cwd(), 'uploads', 'receipts');
+if (!fs.existsSync(receiptsDir)) {
+  fs.mkdirSync(receiptsDir, { recursive: true });
+}
+
+const receiptStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, receiptsDir);
+  },
+  filename: (_req, file, cb) => {
+    const hash = crypto.randomBytes(16).toString('hex');
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${hash}${ext}`);
+  },
+});
+
+export const receiptUpload = multer({
+  storage: receiptStorage,
+  fileFilter, // Reutilizamos el mismo filtro (solo imágenes)
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB máximo
+  },
+});

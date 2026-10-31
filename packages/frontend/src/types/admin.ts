@@ -21,6 +21,9 @@ export type Organization = {
     connected: boolean;
     connectedAt: string | null;
   };
+  // NUEVO
+  paymentGatewayEnabled: boolean;
+  paymentManualEnabled: boolean;
 };
 
 export type OrganizationStats = {
@@ -52,6 +55,8 @@ export type CreateOrganizationPayload = {
   ceoFullName: string;
   ceoEmail: string;
   ceoPassword: string;
+  paymentGatewayEnabled?: boolean;
+  paymentManualEnabled?: boolean;
 };
 
 export type GlobalUser = {

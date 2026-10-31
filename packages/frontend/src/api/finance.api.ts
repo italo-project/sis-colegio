@@ -10,6 +10,8 @@ import type {
   OverdueInvoice,
   ReportByPeriod,
   UpdateFeeConceptPayload,
+  PaymentReceipt,
+  ReceiptsListResponse,
 } from '@/types/finance';
 
 export const financeApi = {
@@ -107,4 +109,40 @@ export const financeApi = {
     });
     return response.data as Blob;
   },
+
+    // ── Comprobantes manuales (Yape/Transferencia) ────────────────
+  async uploadReceipt(invoiceId: string, file: File, notes?: string) {
+    const formData = new FormData();
+    formData.append('receipt', file);
+    if (notes) formData.append('notes', notes);
+
+    const { data } = await apiClient.post<PaymentReceipt>(
+      `/finance/invoices/${invoiceId}/receipts`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return data;
+  },
+
+  async listPendingReceipts() {
+    const { data } = await apiClient.get<ReceiptsListResponse>('/finance/receipts/pending');
+    return data;
+  },
+
+  async reviewReceipt(receiptId: string, status: 'approved' | 'rejected', reviewNotes?: string) {
+    const { data } = await apiClient.patch<PaymentReceipt>(
+      `/finance/receipts/${receiptId}/review`,
+      { status, reviewNotes },
+    );
+    return data;
+  },
+
+  async payWithGateway(invoiceId: string) {
+    const { data } = await apiClient.post<{ message: string }>(
+      `/finance/invoices/${invoiceId}/pay/gateway`,
+    );
+    return data;
+  },
+
+
 };

@@ -36,6 +36,9 @@ export const adminService = {
           subdomain: input.subdomain,
           schemaName: input.schemaName,
           plan: input.plan,
+          // NUEVO: flags de métodos de pago
+          paymentGatewayEnabled: input.paymentGatewayEnabled,
+          paymentManualEnabled: input.paymentManualEnabled,
         },
       });
 
@@ -74,7 +77,7 @@ export const adminService = {
       throw err;
     }
 
-    return {
+        return {
       organization: {
         id: result.org.id,
         name: result.org.name,
@@ -82,6 +85,8 @@ export const adminService = {
         schemaName: result.org.schemaName,
         plan: result.org.plan,
         isActive: result.org.isActive,
+        paymentGatewayEnabled: result.org.paymentGatewayEnabled,
+        paymentManualEnabled: result.org.paymentManualEnabled,
       },
       ceo: {
         id: result.ceoUser.id,

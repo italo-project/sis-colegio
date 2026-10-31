@@ -9,23 +9,23 @@ type StatCardProps = {
 };
 
 const colorClasses = {
-  blue: 'bg-blue-100 text-blue-600',
-  green: 'bg-green-100 text-green-600',
-  yellow: 'bg-yellow-100 text-yellow-600',
-  purple: 'bg-purple-100 text-purple-600',
+  blue: 'bg-blue-50 text-blue-600',
+  green: 'bg-green-50 text-green-600',
+  yellow: 'bg-yellow-50 text-yellow-600',
+  purple: 'bg-purple-50 text-purple-600',
 };
 
 export const StatCard = ({ title, value, icon, color = 'blue', subtitle }: StatCardProps) => {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white rounded-2xl p-6 shadow-apple hover:shadow-apple-hover transition-all duration-300 border border-gray-100">
+      <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-medium text-gray-500">{title}</span>
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClasses[color]}`}>
           {icon}
         </div>
       </div>
-      <div className="text-2xl font-bold text-gray-900">{value}</div>
-      {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
+      <div className="text-3xl font-bold text-gray-900">{value}</div>
+      {subtitle && <div className="text-sm text-gray-500 mt-1">{subtitle}</div>}
     </div>
   );
 };
@@ -39,14 +39,14 @@ type CardProps = {
 
 export const Card = ({ title, action, children, className = '' }: CardProps) => {
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 ${className}`}>
+    <div className={`bg-white rounded-2xl shadow-apple border border-gray-100 overflow-hidden ${className}`}>
       {(title || action) && (
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          {title && <h3 className="font-semibold text-gray-900">{title}</h3>}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+          {title && <h3 className="font-semibold text-gray-900 text-lg">{title}</h3>}
           {action}
         </div>
       )}
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 };

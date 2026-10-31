@@ -48,6 +48,10 @@ model Organization {
   deletedBy      String?   @map("deleted_by") @db.Uuid
   deletionReason String?   @map("deletion_reason")
 
+  // ... campos existentes
+  paymentGatewayEnabled Boolean @default(false) @map("payment_gateway_enabled")
+  paymentManualEnabled  Boolean @default(true)  @map("payment_manual_enabled")
+
   members OrganizationUser[]
 
   @@map("organizations")

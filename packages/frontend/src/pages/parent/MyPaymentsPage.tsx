@@ -1,8 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
-import { CheckCircle, Clock, XCircle, Receipt } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle, Clock, XCircle, Receipt, Upload, CreditCard } from 'lucide-react';
 import { meApi } from '@/api/me.api';
+import { financeApi } from '@/api/finance.api';
+import { getErrorMessage } from '@/api/client';
 import { StatCard } from '@/components/ui/Card';
 import { formatDateEs } from '@/lib/dates';
+import { UploadReceiptModal } from './UploadReceiptModal';
 import type { InvoiceStatus } from '@/types/finance';
 
 const statusLabels: Record<InvoiceStatus, string> = {
@@ -20,6 +24,9 @@ const statusColors: Record<InvoiceStatus, string> = {
 };
 
 export const MyPaymentsPage = () => {
+  const queryClient = useQueryClient();
+  const [uploadFor, setUploadFor] = useState<string | null>(null);
+
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['my-invoices'],
     queryFn: meApi.getMyInvoices,
@@ -37,6 +44,21 @@ export const MyPaymentsPage = () => {
   const totalPaid = paid.reduce((sum, i) => sum + i.amount, 0);
   const totalPending = pending.reduce((sum, i) => sum + i.amount, 0);
   const totalOverdue = overdue.reduce((sum, i) => sum + i.amount, 0);
+
+  const handleReceiptSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['my-invoices'] });
+    setUploadFor(null);
+    alert('Comprobante enviado. El colegio lo revisará pronto.');
+  };
+
+  const handlePayGateway = async (invoiceId: string) => {
+    try {
+      const res = await financeApi.payWithGateway(invoiceId);
+      alert(res.message); // Mostrará "Pasarela en configuración..."
+    } catch (err) {
+      alert(getErrorMessage(err));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -95,6 +117,7 @@ export const MyPaymentsPage = () => {
                   <th className="text-left font-medium px-4 py-3">Vencimiento</th>
                   <th className="text-right font-medium px-4 py-3">Monto</th>
                   <th className="text-left font-medium px-4 py-3">Estado</th>
+                  <th className="text-right font-medium px-4 py-3">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -118,6 +141,31 @@ export const MyPaymentsPage = () => {
                         {statusLabels[inv.status]}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      {inv.status === 'pending' || inv.status === 'overdue' ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handlePayGateway(inv.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                            title="Pagar con tarjeta"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            Tarjeta
+                          </button>
+                          
+                          <button
+                            onClick={() => setUploadFor(inv.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                            title="Subir comprobante"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            Comprobante
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -125,6 +173,13 @@ export const MyPaymentsPage = () => {
           </div>
         )}
       </div>
+
+      <UploadReceiptModal
+        open={!!uploadFor}
+        onClose={() => setUploadFor(null)}
+        invoiceId={uploadFor!}
+        onSuccess={handleReceiptSuccess}
+      />
     </div>
   );
 };

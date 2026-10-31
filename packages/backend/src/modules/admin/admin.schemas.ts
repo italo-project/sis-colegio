@@ -7,6 +7,10 @@ export const createOrganizationSchema = z.object({
   schemaName: z.string().min(3).max(63).regex(/^[a-z][a-z0-9_]{2,62}$/),
   plan: z.enum(['basic', 'pro', 'business', 'enterprise']).default('basic'),
 
+  // Métodos de pago
+  paymentGatewayEnabled: z.boolean().default(false),
+  paymentManualEnabled: z.boolean().default(true),
+
   // Datos del CEO
   ceoFullName: z.string().min(3).max(200),
   ceoEmail: z.string().email(),
@@ -20,6 +24,8 @@ export const updateOrganizationSchema = z.object({
   name: z.string().min(3).max(200).optional(),
   plan: z.enum(['basic', 'pro', 'business', 'enterprise']).optional(),
   isActive: z.boolean().optional(),
+  paymentGatewayEnabled: z.boolean().optional(),
+  paymentManualEnabled: z.boolean().optional(),
 });
 
 export const listOrganizationsQuerySchema = z.object({
@@ -58,6 +64,7 @@ export const updateUserSchema = z.object({
 export const resetUserPasswordSchema = z.object({
   newPassword: z.string().min(8).default('Cambiar123!'),
 });
+
 export const listAuditLogsQuerySchema = z.object({
   action: z.string().optional(),
   actorUserId: z.string().uuid().optional(),

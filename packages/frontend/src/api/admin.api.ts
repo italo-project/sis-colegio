@@ -46,7 +46,15 @@ export const adminApi = {
     return data;
   },
 
-  async updateOrganization(id: string, payload: { name?: string; plan?: string }) {
+  async updateOrganization(
+    id: string,
+    payload: {
+      name?: string;
+      plan?: string;
+      paymentGatewayEnabled?: boolean;
+      paymentManualEnabled?: boolean;
+    },
+  ) {
     const { data } = await apiClient.patch(`/admin/organizations/${id}`, payload);
     return data;
   },

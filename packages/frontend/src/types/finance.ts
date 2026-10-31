@@ -46,6 +46,7 @@ export type Invoice = {
     code: string;
   };
   payments?: Payment[];
+  receipts?: PaymentReceipt[]; // <-- AGREGA ESTO
 };
 
 export type InvoicesListResponse = {
@@ -109,4 +110,32 @@ export type OverdueInvoice = {
   amount: number;
   dueDate: string;
   daysOverdue: number;
+};
+
+// ── Pasarela de Pago ──────────────────────────────────────────
+export type GatewayPaymentResponse = {
+  message: string;
+  paymentId: string;
+  invoiceId: string;
+};
+
+export type PaymentReceiptStatus = 'pending' | 'approved' | 'rejected';
+
+export type PaymentReceipt = {
+  id: string;
+  invoiceId: string;
+  uploadedBy: string;
+  fileUrl: string;
+  notes: string | null;
+  status: PaymentReceiptStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ReceiptsListResponse = {
+  items: PaymentReceipt[];
+  total: number;
 };

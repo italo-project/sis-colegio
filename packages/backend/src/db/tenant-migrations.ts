@@ -621,5 +621,28 @@ export const TENANT_MIGRATIONS: TenantMigration[] = [
          ON student_section_history(student_id, left_at DESC)`,
     ],
   },
+
+    {
+    id: '030_payment_receipts',
+    description: 'Comprobantes de pago manual (Yape/Transferencia)',
+    statements: [
+      `CREATE TABLE IF NOT EXISTS payment_receipts (
+        id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        invoice_id     UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+        uploaded_by    UUID NOT NULL,
+        file_url       TEXT NOT NULL,
+        notes          TEXT,
+        status         VARCHAR(20) NOT NULL DEFAULT 'pending'
+                       CHECK (status IN ('pending', 'approved', 'rejected')),
+        reviewed_by    UUID,
+        reviewed_at    TIMESTAMPTZ,
+        review_notes   TEXT,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_payment_receipts_invoice ON payment_receipts(invoice_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_payment_receipts_status ON payment_receipts(status) WHERE status = 'pending'`
+    ],
+  },
   
 ];

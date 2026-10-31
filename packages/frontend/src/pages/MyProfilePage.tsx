@@ -80,11 +80,19 @@ export const MyProfilePage = () => {
 
     setSavingPassword(true);
     try {
+      // Usamos meApi.updatePassword que apunta a /me/password (funciona para todos los roles)
       await meApi.updatePassword(currentPassword, newPassword);
-      showToast('success', 'Contraseña actualizada');
+      
+      showToast('success', 'Contraseña actualizada correctamente');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      
+      // Si es CEO, actualizamos el flag de mustChangePassword por si acaso
+      // pero NO cerramos sesión.
+      if (isCeo) {
+        refetch();
+      }
     } catch (err) {
       showToast('error', getErrorMessage(err));
     } finally {

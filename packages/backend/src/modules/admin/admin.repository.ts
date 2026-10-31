@@ -13,6 +13,8 @@ type OrganizationRow = {
   created_at: Date;
   mp_user_id: string | null;
   mp_connected_at: Date | null;
+  payment_gateway_enabled: boolean;
+  payment_manual_enabled: boolean;
 };
 
 const toApi = (row: OrganizationRow) => ({
@@ -27,6 +29,8 @@ const toApi = (row: OrganizationRow) => ({
     connected: row.mp_user_id !== null,
     connectedAt: row.mp_connected_at,
   },
+  paymentGatewayEnabled: row.payment_gateway_enabled,
+  paymentManualEnabled: row.payment_manual_enabled,
 });
 
 export const adminRepository = {
@@ -119,7 +123,13 @@ export const adminRepository = {
 
   async updateOrganization(
     id: string,
-    data: { name?: string; plan?: string; isActive?: boolean },
+    data: {
+      name?: string;
+      plan?: string;
+      isActive?: boolean;
+      paymentGatewayEnabled?: boolean;
+      paymentManualEnabled?: boolean;
+    },
   ) {
     const fields: string[] = [];
     const params: unknown[] = [];
@@ -135,6 +145,14 @@ export const adminRepository = {
     if (data.isActive !== undefined) {
       params.push(data.isActive);
       fields.push(`is_active = $${params.length}`);
+    }
+    if (data.paymentGatewayEnabled !== undefined) {
+      params.push(data.paymentGatewayEnabled);
+      fields.push(`payment_gateway_enabled = $${params.length}`);
+    }
+    if (data.paymentManualEnabled !== undefined) {
+      params.push(data.paymentManualEnabled);
+      fields.push(`payment_manual_enabled = $${params.length}`);
     }
 
     if (fields.length === 0) return this.getOrganizationById(id);
@@ -755,14 +773,16 @@ export const adminRepository = {
 
     try {
       // 2. Crear organización + CEO
-      const org = await prisma.organization.create({
-        data: {
-          name: 'Colegio Demo',
-          subdomain: DEMO_SUBDOMAIN,
-          schemaName: DEMO_SCHEMA,
-          plan: 'pro',
-        },
-      });
+    const org = await prisma.organization.create({
+      data: {
+        name: 'Colegio Demo',
+        subdomain: DEMO_SUBDOMAIN,
+        schemaName: DEMO_SCHEMA,
+        plan: 'pro',
+        paymentGatewayEnabled: false,
+        paymentManualEnabled: true,
+      },
+    });
 
       const passwordHash = await bcryptHash(DEMO_CEO_PASSWORD);
       const ceo = await prisma.user.create({
